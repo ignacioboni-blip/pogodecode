@@ -77,6 +77,12 @@ verification — no field numbers, just names and values:
 - **Mega / Primal forms** (incl. Mega X / Mega Y) with their overridden stats
   and typing, listed as their own entries
 - **Regional forms** (Alolan / Galarian / Hisuian) — these are normal entries
+- **Type matchups** — per-Pokémon weaknesses / resistances, plus a full 18×18
+  type-effectiveness chart (its own tab)
+- **Move DPS / EPS** on every move, plus a **Moves** tab listing all moves
+- **Power-up & CP tables** — candy/stardust to max, CP at L20/30/40/50
+- **Validation** tab — a sanity-check report over the whole file (Pokémon with
+  no moves, unresolved move IDs, stat/type outliers, etc.)
 
 It works by layering a small, documented field map (`pogodecode/pokedex.py`)
 over the schema-free decode. Every mapped field was checked against known
@@ -87,6 +93,9 @@ Command line:
 
 ```bash
 python -m pogodecode.dexcli GAME_MASTER --name CHARIZARD   # print a sheet
+python -m pogodecode.dexcli GAME_MASTER --moves            # list every move
+python -m pogodecode.dexcli GAME_MASTER --type-chart       # effectiveness matrix
+python -m pogodecode.dexcli GAME_MASTER --validate         # sanity-check report
 python -m pogodecode.dexcli GAME_MASTER --export sheets.json
 ```
 

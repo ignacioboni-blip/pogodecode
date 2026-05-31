@@ -51,9 +51,25 @@ def main(argv=None) -> int:
     p.add_argument("input", help="GAME_MASTER file or decoded JSON")
     p.add_argument("--name", help="filter by (sub)string, e.g. BULBASAUR or CHARIZARD")
     p.add_argument("--export", metavar="PATH", help="write all sheets to a JSON file")
+    p.add_argument("--moves", action="store_true", help="list every move with stats")
+    p.add_argument("--type-chart", action="store_true", help="print the type-effectiveness chart")
+    p.add_argument("--validate", action="store_true", help="print a data sanity-check report")
     args = p.parse_args(argv)
 
     dex = load_pokedex(args.input)
+
+    if args.validate:
+        print(json.dumps(dex.validate(), indent=2, ensure_ascii=False))
+        return 0
+    if args.type_chart:
+        print(json.dumps(dex.type_chart_named(), indent=2, ensure_ascii=False))
+        return 0
+    if args.moves:
+        for m in dex.all_moves():
+            print(f"{m['name']:<28} {m['type']:<9} {m['category']:<6} "
+                  f"pow {m['power']:<5g} eng {m['energy']:<5} "
+                  f"{m['durationMs']/1000:>4g}s  DPS {m['dps']:<6} EPS {m['eps']}")
+        return 0
 
     if args.export:
         with open(args.export, "w", encoding="utf-8") as fh:

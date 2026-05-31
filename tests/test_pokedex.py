@@ -75,8 +75,23 @@ def _make_dex():
             "1": 90, "3": 4, "4": 85.0, "12": 2500, "15": (1 << 64) - 50,
         }},
         "PLAYER_LEVEL_SETTINGS": {"12": {"3": {"__bytes__": cpm_b64}}},
+        # Fire attack row: SE vs Grass(12)=1.6, resist vs Water(11)=0.625
+        "POKEMON_TYPE_FIRE": {"8": {"2": 10, "1": {"__bytes__": _type_row({12: 1.6, 11: 0.625})}}},
+        "POKEMON_TYPE_WATER": {"8": {"2": 11, "1": {"__bytes__": _type_row({10: 1.6})}}},
+        "POKEMON_UPGRADE_SETTINGS": {"18": {
+            "3": {"__bytes__": base64.b64encode(_packed_varints([1, 1, 2, 2])).decode()},
+            "4": {"__bytes__": base64.b64encode(_packed_varints([200, 200, 400, 400])).decode()},
+        }},
     }
     return Pokedex(by_id, source="unit")
+
+
+def _type_row(overrides):
+    import base64
+    vals = [1.0] * 18
+    for type_id, mult in overrides.items():
+        vals[type_id - 1] = mult
+    return base64.b64encode(struct.pack("<18f", *vals)).decode()
 
 
 def test_sheet_core_fields():
@@ -123,6 +138,40 @@ def test_mega_forms_are_exposed_with_overrides():
     assert y["baseStats"]["attack"] == 319
     # Mega inherits the base species movepool
     assert y["fastMoves"] == x["fastMoves"]
+
+
+def test_move_dps_eps():
+    dex = _make_dex()
+    s = dex.sheet("V0001_POKEMON_BULBASAUR")
+    sludge = s["chargeMoves"][0]            # power 85, energy -50, 2.5s
+    assert sludge["dps"] == 34.0
+    assert sludge["eps"] == -20.0
+
+
+def test_type_matchups_and_chart():
+    dex = _make_dex()
+    # A Fire-type defender (Charizard f4=10) should be weak to Water
+    charizard = dex.sheet("V0006_POKEMON_CHARIZARD")
+    assert "Water" in charizard["weakTo"]
+    chart = dex.type_chart_named()
+    assert chart["Fire"]["Grass"] == 1.6
+    assert chart["Fire"]["Water"] == 0.625
+
+
+def test_power_up_summary():
+    dex = _make_dex()
+    s = dex.power_up_summary()
+    assert s["totalCandy"] == 6           # 1+1+2+2
+    assert s["totalStardust"] == 1200     # 200+200+400+400
+
+
+def test_validate_runs_clean_on_synthetic_data():
+    dex = _make_dex()
+    r = dex.validate()
+    assert r["pokemonChecked"] == 2
+    assert r["unresolvedMoveIds"]["count"] == 0
+    assert r["statOutliers"]["count"] == 0
+    assert r["typeChartAttackers"] == 2
 
 
 def test_cp_multiplier_indexing():

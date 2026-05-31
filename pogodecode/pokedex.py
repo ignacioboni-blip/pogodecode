@@ -89,6 +89,17 @@ PL_REQUIRED_XP = "2"     # packed varint array
 
 _RE_POKEMON = re.compile(r"^V(\d+)_POKEMON_(.+)$")
 _RE_MOVE = re.compile(r"^(?:COMBAT_)?V(\d+)_MOVE_(.+)$")
+_RE_TYPE = re.compile(r"^POKEMON_TYPE_([A-Z]+)$")
+
+# --- field map: POKEMON_TYPE_* (type effectiveness, data field 8) ----------
+TY_SETTINGS = "8"
+TY_SCALARS = "1"     # packed float32: attack multipliers vs defending types 1..18
+TY_TYPE_ID = "2"
+
+# --- field map: POKEMON_UPGRADE_SETTINGS (data field 18) -------------------
+PU_SETTINGS = "18"
+PU_CANDY = "3"       # packed varint: candy cost per upgrade step
+PU_STARDUST = "4"    # packed varint: stardust cost per upgrade step
 
 
 # --- packed-array helpers --------------------------------------------------
@@ -174,12 +185,23 @@ class Move:
         self.pvp_power = None
         self.pvp_energy = None
 
+    @property
+    def dps(self) -> float:
+        """Damage per second (PvE)."""
+        return round(self.power / (self.duration_ms / 1000.0), 2) if self.duration_ms else 0.0
+
+    @property
+    def eps(self) -> float:
+        """Energy per second (PvE); negative for charge moves (energy spent)."""
+        return round(self.energy / (self.duration_ms / 1000.0), 2) if self.duration_ms else 0.0
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id, "name": self.name, "type": self.type_name,
             "category": "Fast" if self.is_fast else "Charge",
             "power": self.power, "energy": self.energy,
             "durationMs": self.duration_ms,
+            "dps": self.dps, "eps": self.eps,
             "pvpPower": self.pvp_power, "pvpEnergy": self.pvp_energy,
         }
 
@@ -223,6 +245,8 @@ class Pokedex:
     def _build(self) -> None:
         self._build_moves()
         self._build_levels()
+        self._build_type_chart()
+        self._build_upgrade_costs()
         base_keys = [
             k for k, v in self._by_id.items()
             if _RE_POKEMON.match(k)
@@ -267,6 +291,35 @@ class Pokedex:
                 mv.pvp_power = s.get(MF_PVP_POWER)
                 mv.pvp_energy = _to_signed(s.get(MF_PVP_ENERGY)) if s.get(MF_PVP_ENERGY) is not None else None
                 self.moves.setdefault(move_id, mv)
+
+    def _build_type_chart(self) -> None:
+        """attacker type id -> [18 attack multipliers vs defending types 1..18]."""
+        self.type_chart: Dict[int, List[float]] = {}
+        for tid, data in self._by_id.items():
+            if not _RE_TYPE.match(tid) or not isinstance(data, dict):
+                continue
+            blk = data.get(TY_SETTINGS)
+            if not isinstance(blk, dict):
+                continue
+            scalars = blk.get(TY_SCALARS)
+            type_id = blk.get(TY_TYPE_ID)
+            if isinstance(scalars, dict) and "__bytes__" in scalars and type_id:
+                vals = _unpack_floats(scalars["__bytes__"])
+                if len(vals) >= 18:
+                    self.type_chart[int(type_id)] = vals[:18]
+
+    def _build_upgrade_costs(self) -> None:
+        self.upgrade_candy: List[int] = []
+        self.upgrade_stardust: List[int] = []
+        pus = self._by_id.get("POKEMON_UPGRADE_SETTINGS")
+        if isinstance(pus, dict) and isinstance(pus.get(PU_SETTINGS), dict):
+            blk = pus[PU_SETTINGS]
+            candy = blk.get(PU_CANDY)
+            dust = blk.get(PU_STARDUST)
+            if isinstance(candy, dict) and "__bytes__" in candy:
+                self.upgrade_candy = _unpack_varints(candy["__bytes__"])
+            if isinstance(dust, dict) and "__bytes__" in dust:
+                self.upgrade_stardust = _unpack_varints(dust["__bytes__"])
 
     def _build_levels(self) -> None:
         pls = self._by_id.get("PLAYER_LEVEL_SETTINGS")
@@ -313,6 +366,121 @@ class Pokedex:
         s = (stamina + iv) * cpm
         cp = int((a * math.sqrt(d) * math.sqrt(s)) / 10.0)
         return max(cp, 10)
+
+    # -- type effectiveness -------------------------------------------------
+    def type_matchups(self, defending_type_ids: List[int]) -> Dict[str, Any]:
+        """Combine attack multipliers across a defender's type(s).
+
+        Returns weaknesses (multiplier > 1) and resistances (< 1), each as a
+        list of ``{"type": name, "multiplier": x}`` sorted by impact.
+        """
+        weak: List[Dict[str, Any]] = []
+        resist: List[Dict[str, Any]] = []
+        for attacker in range(1, 19):
+            row = self.type_chart.get(attacker)
+            if not row:
+                continue
+            mult = 1.0
+            for dt in defending_type_ids:
+                if 1 <= dt <= 18:
+                    mult *= row[dt - 1]
+            entry = {"type": TYPE_NAMES[attacker], "multiplier": round(mult, 4)}
+            if mult > 1.01:
+                weak.append(entry)
+            elif mult < 0.99:
+                resist.append(entry)
+        weak.sort(key=lambda e: -e["multiplier"])
+        resist.sort(key=lambda e: e["multiplier"])
+        return {"weakTo": weak, "resistantTo": resist}
+
+    def type_chart_named(self) -> Dict[str, Dict[str, float]]:
+        """Full chart as {attacker name: {defender name: multiplier}}."""
+        out: Dict[str, Dict[str, float]] = {}
+        for attacker, row in sorted(self.type_chart.items()):
+            out[TYPE_NAMES[attacker]] = {
+                TYPE_NAMES[d + 1]: round(row[d], 4) for d in range(18)
+            }
+        return out
+
+    # -- power-up costs -----------------------------------------------------
+    def power_up_summary(self) -> Dict[str, Any]:
+        """Total candy/stardust to fully power up (constant for all species)."""
+        return {
+            "steps": max(len(self.upgrade_candy), len(self.upgrade_stardust)),
+            "totalCandy": sum(self.upgrade_candy),
+            "totalStardust": sum(self.upgrade_stardust),
+            "candyPerStep": self.upgrade_candy,
+            "stardustPerStep": self.upgrade_stardust,
+        }
+
+    def cp_table(self, attack: int, defense: int, stamina: int,
+                 iv: int = 15, levels: Optional[List[float]] = None) -> List[Dict[str, Any]]:
+        """CP at a set of levels (default 10..50 step 5) for the given stats."""
+        if levels is None:
+            levels = [float(x) for x in (10, 15, 20, 25, 30, 35, 40, 45, 50)]
+        rows = []
+        for lv in levels:
+            cp = self.max_cp(attack, defense, stamina, level=lv, iv=iv)
+            if cp is not None:
+                rows.append({"level": lv, "cp": cp})
+        return rows
+
+    # -- moves browser ------------------------------------------------------
+    def all_moves(self) -> List[Dict[str, Any]]:
+        return [self.moves[mid].to_dict() for mid in sorted(self.moves)]
+
+    # -- validation ---------------------------------------------------------
+    def validate(self) -> Dict[str, Any]:
+        """Sanity-check the decoded data; report anomalies for verification."""
+        no_fast, no_charge, stat_outliers, bad_types = [], [], [], []
+        unresolved: Dict[int, int] = {}
+        zero_duration_moves: List[str] = []
+
+        for key in self._pokemon_keys:
+            if TEMPEVO_SEP in key:
+                continue
+            s = self._by_id[key][PF_SETTINGS]
+            fast_ids = _packed_move_ids(s.get(PF_QUICK_MOVES))
+            charge_ids = _packed_move_ids(s.get(PF_CHARGE_MOVES))
+            if not fast_ids:
+                no_fast.append(key)
+            if not charge_ids:
+                no_charge.append(key)
+            for mid in fast_ids + charge_ids:
+                if mid not in self.moves:
+                    unresolved[mid] = unresolved.get(mid, 0) + 1
+            st = s.get(PF_STATS, {})
+            for v in (st.get(PF_STAT_ATTACK), st.get(PF_STAT_DEFENSE), st.get(PF_STAT_STAMINA)):
+                if not isinstance(v, int) or v <= 0 or v > 600:
+                    stat_outliers.append(key)
+                    break
+            for t in (PF_TYPE1, PF_TYPE2):
+                if t in s and s[t] and not (1 <= int(s[t]) <= 18):
+                    bad_types.append(key)
+                    break
+
+        for mv in self.moves.values():
+            if mv.duration_ms <= 0:
+                zero_duration_moves.append(mv.name)
+
+        def sample(seq, n=15):
+            seq = list(seq)
+            return {"count": len(seq), "sample": seq[:n]}
+
+        return {
+            "source": self.source,
+            "pokemonChecked": sum(1 for k in self._pokemon_keys if TEMPEVO_SEP not in k),
+            "movesChecked": len(self.moves),
+            "pokemonWithoutFastMove": sample(no_fast),
+            "pokemonWithoutChargeMove": sample(no_charge),
+            "unresolvedMoveIds": {"count": len(unresolved),
+                                  "sample": dict(list(unresolved.items())[:15])},
+            "statOutliers": sample(stat_outliers),
+            "invalidTypes": sample(bad_types),
+            "movesWithZeroDuration": sample(zero_duration_moves),
+            "typeChartAttackers": len(self.type_chart),
+            "cpMultiplierLevels": len(self.cp_multipliers),
+        }
 
     def _temp_evo_override(self, settings: Dict[str, Any], evo_id: int) -> Optional[Dict[str, Any]]:
         ov = settings.get(PF_TEMP_EVO)
@@ -361,8 +529,9 @@ class Pokedex:
             type_src = s
             height = s.get(PF_HEIGHT_M)
             weight = s.get(PF_WEIGHT_KG)
-        types = [TYPE_NAMES.get(int(type_src[t]), str(type_src[t]))
-                 for t in (PF_TYPE1, PF_TYPE2) if type_src.get(t)]
+        type_ids = [int(type_src[t]) for t in (PF_TYPE1, PF_TYPE2) if type_src.get(t)]
+        types = [TYPE_NAMES.get(t, str(t)) for t in type_ids]
+        matchups = self.type_matchups(type_ids) if self.type_chart else None
 
         # Mega forms use the base species movepool.
         fast = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_QUICK_MOVES))]
@@ -388,6 +557,8 @@ class Pokedex:
             "form": s.get(PF_FORM),
             "isMega": bool(override),
             "types": types,
+            "weakTo": [e["type"] for e in matchups["weakTo"]] if matchups else [],
+            "resistantTo": [e["type"] for e in matchups["resistantTo"]] if matchups else [],
             "baseStats": {"attack": atk, "defense": dfn, "stamina": sta},
             "heightM": height,
             "weightKg": weight,
