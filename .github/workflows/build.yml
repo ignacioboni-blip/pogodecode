@@ -35,13 +35,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pyinstaller
-      - name: Build executable
+      - name: Build executables
         run: pyinstaller --noconfirm pogodecode.spec
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PoGoGameMasterDecoder
-          path: dist/PoGoGameMasterDecoder.exe
+          name: PoGo-tools-windows
+          path: |
+            dist/PoGoGameMasterDecoder.exe
+            dist/PoGoPokedexViewer.exe
           if-no-files-found: error
 
   release:
@@ -49,12 +51,14 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Download built exe
+      - name: Download built exes
         uses: actions/download-artifact@v4
         with:
-          name: PoGoGameMasterDecoder
+          name: PoGo-tools-windows
           path: dist
-      - name: Attach exe to GitHub Release
+      - name: Attach exes to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/PoGoGameMasterDecoder.exe
+          files: |
+            dist/PoGoGameMasterDecoder.exe
+            dist/PoGoPokedexViewer.exe

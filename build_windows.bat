@@ -10,12 +10,14 @@ echo === Installing PyInstaller ===
 python -m pip install --upgrade pip
 python -m pip install pyinstaller || goto :err
 
-echo === Building executable ===
+echo === Building executables ===
 pyinstaller --noconfirm pogodecode.spec || goto :err
 
 echo.
 echo === Done ===
-echo Your app is here:  dist\PoGoGameMasterDecoder.exe
+echo Your apps are here:
+echo    dist\PoGoGameMasterDecoder.exe   (decode GAME_MASTER -^> JSON)
+echo    dist\PoGoPokedexViewer.exe       (browse stats / moves / etc.)
 echo.
 pause
 exit /b 0

@@ -63,16 +63,55 @@ library, no schema). It cannot break when Niantic adds or moves a setting:
 4. Click **Decode → JSON**. A ~3 MB GAME_MASTER decodes in a few seconds into
    roughly 20 MB of pretty-printed JSON (tick **Minify** for a smaller file).
 
+## Pokédex Viewer (verification tool)
+
+A second app, **`PoGoPokedexViewer.exe`**, reads a GAME_MASTER file (or a JSON
+exported by the decoder) and shows a readable info sheet per Pokémon for quick
+verification — no field numbers, just names and values:
+
+- Dex number, name, form, **typing**
+- **Base stats** (attack / defense / stamina) and **Max CP** at Level 40
+- Height / weight and **base catch rate**
+- **Fast & charge moves** with type, power, energy and duration
+- Evolution candy cost, 2nd-charge-move unlock cost, shadow/purification cost
+
+It works by layering a small, documented field map (`pogodecode/pokedex.py`)
+over the schema-free decode. Every mapped field was checked against known
+reference values (e.g. Bulbasaur Atk 118 / Def 111 / Sta 128 → Max CP 1115;
+Mewtwo catch rate 2%; Sludge Bomb energy −50).
+
+Command line:
+
+```bash
+python -m pogodecode.dexcli GAME_MASTER --name CHARIZARD   # print a sheet
+python -m pogodecode.dexcli GAME_MASTER --export sheets.json
+```
+
+Library:
+
+```python
+from pogodecode.pokedex import load_pokedex
+dex = load_pokedex("GAME_MASTER")            # raw file OR decoded .json
+print(dex.sheet("V0006_POKEMON_CHARIZARD"))
+```
+
+> **Not in GAME_MASTER:** spawn locations / "where found" are *not* part of the
+> GAME_MASTER file — that data lives server-side, so no decoder can extract it.
+> What's available (catch rate, stats, moves, costs, level/CP tables) is shown.
+
 ## Building the .exe (on Windows)
 
 ```bat
 build_windows.bat
 ```
 
-This creates a virtual environment, installs PyInstaller, and produces
-`dist\PoGoGameMasterDecoder.exe` — a single self-contained file that needs no
-Python install on the target machine. (Equivalent manual step:
-`pyinstaller pogodecode.spec`.)
+This creates a virtual environment, installs PyInstaller, and produces two
+self-contained files that need no Python on the target machine:
+
+- `dist\PoGoGameMasterDecoder.exe` — decode GAME_MASTER → JSON
+- `dist\PoGoPokedexViewer.exe` — browse stats / moves / etc.
+
+(Equivalent manual step: `pyinstaller pogodecode.spec`.)
 
 ## Command-line use (any OS)
 
@@ -116,12 +155,16 @@ POGO_GAME_MASTER=/path/to/GAME_MASTER pytest   # also runs the integration test
 pogodecode/
   protobuf_decoder.py   schema-free protobuf wire-format decoder
   gamemaster.py         GAME_MASTER structure -> JSON-ready dict
-  cli.py                command-line entry point
-  gui.py                Tkinter desktop UI
-run_gui.py              .exe entry point
-pogodecode.spec         PyInstaller build spec
+  pokedex.py            field map: decoded data -> named Pokémon/move sheets
+  cli.py                decoder command-line entry point
+  dexcli.py             Pokédex command-line entry point
+  gui.py                Tkinter decoder UI
+  viewer.py             Tkinter Pokédex viewer UI
+run_gui.py              decoder .exe entry point
+run_viewer.py           viewer .exe entry point
+pogodecode.spec         PyInstaller build spec (builds both .exes)
 build_windows.bat       one-click Windows build
-tests/test_decoder.py   unit + integration tests
+tests/                  unit + integration tests
 ```
 
 ## Legal
