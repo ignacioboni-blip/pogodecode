@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# PyInstaller build output
+build/
+dist/
+*.manifest
+
+# Decoded output / game assets (do not commit Niantic data)
+*.json
+!package.json
+GAME_MASTER
+*GAME_MASTER*
+!*.spec
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

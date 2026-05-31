@@ -1,0 +1,8 @@
+# Runtime: none. The decoder and GUI use only the Python standard library
+# (struct, base64, json, tkinter, threading).
+#
+# Build-time only (to produce the Windows .exe):
+pyinstaller>=6.0
+
+# Test-time only:
+pytest>=7.0
