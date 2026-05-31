@@ -74,6 +74,9 @@ verification — no field numbers, just names and values:
 - Height / weight and **base catch rate**
 - **Fast & charge moves** with type, power, energy and duration
 - Evolution candy cost, 2nd-charge-move unlock cost, shadow/purification cost
+- **Mega / Primal forms** (incl. Mega X / Mega Y) with their overridden stats
+  and typing, listed as their own entries
+- **Regional forms** (Alolan / Galarian / Hisuian) — these are normal entries
 
 It works by layering a small, documented field map (`pogodecode/pokedex.py`)
 over the schema-free decode. Every mapped field was checked against known
@@ -95,9 +98,17 @@ dex = load_pokedex("GAME_MASTER")            # raw file OR decoded .json
 print(dex.sheet("V0006_POKEMON_CHARIZARD"))
 ```
 
-> **Not in GAME_MASTER:** spawn locations / "where found" are *not* part of the
-> GAME_MASTER file — that data lives server-side, so no decoder can extract it.
-> What's available (catch rate, stats, moves, costs, level/CP tables) is shown.
+> **Where Mega forms live:** Megas are *not* separate Pokémon templates. They
+> are stored as temporary-evolution overrides (field 51) inside the base
+> species template, so the viewer reads them from there and lists them
+> separately (e.g. "Mega Y Charizard").
+>
+> **Not in GAME_MASTER at all:** "found in wild / raids / research" and spawn
+> locations are **not** in this file. GAME_MASTER is a static config of game
+> *mechanics* (stats, moves, costs, CP tables). Raid rotations, wild spawn
+> pools and research rewards are event-driven, server-side data that Niantic
+> changes weekly — no decoder can extract them from GAME_MASTER. The only
+> spawn-related value present is gender ratio.
 
 ## Building the .exe (on Windows)
 

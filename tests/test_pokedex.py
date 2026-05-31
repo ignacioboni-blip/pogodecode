@@ -58,6 +58,16 @@ def _make_dex():
             "7": {"20": 0.2},
             "26": {"1": 2, "3": 25},
         }},
+        "V0006_POKEMON_CHARIZARD": {"2": {
+            "1": 6, "4": 10, "5": 3,
+            "8": {"1": 186, "2": 223, "3": 173},
+            "9": {"__bytes__": quick}, "10": {"__bytes__": charge},
+            # two Mega overrides (X = Fire/Dragon, Y = Fire/Flying)
+            "51": [
+                {"1": 2, "2": {"1": 186, "2": 273, "3": 213}, "5": 10, "6": 16},
+                {"1": 3, "2": {"1": 186, "2": 319, "3": 212}, "5": 10, "6": 3},
+            ],
+        }},
         "V0214_MOVE_VINE_WHIP_FAST": {"4": {
             "1": 214, "3": 12, "4": 6.0, "12": 500, "15": 5, "11": "vine_whip_fast",
         }},
@@ -96,6 +106,25 @@ def test_max_cp_level40_matches_reference():
     assert s["maxCpLevel40"] == 1115     # canonical Bulbasaur max CP
 
 
+def test_mega_forms_are_exposed_with_overrides():
+    dex = _make_dex()
+    keys = dex.pokemon_keys()
+    mega_keys = [k for k in keys if "::TEMPEVO::" in k]
+    assert len(mega_keys) == 2  # Charizard X and Y
+
+    x = dex.sheet("V0006_POKEMON_CHARIZARD::TEMPEVO::2")
+    assert x["isMega"] is True
+    assert x["name"] == "Mega X Charizard"
+    assert x["types"] == ["Fire", "Dragon"]
+    assert x["baseStats"] == {"attack": 273, "defense": 213, "stamina": 186}
+
+    y = dex.sheet("V0006_POKEMON_CHARIZARD::TEMPEVO::3")
+    assert y["types"] == ["Fire", "Flying"]
+    assert y["baseStats"]["attack"] == 319
+    # Mega inherits the base species movepool
+    assert y["fastMoves"] == x["fastMoves"]
+
+
 def test_cp_multiplier_indexing():
     dex = _make_dex()
     assert abs(dex.cp_multiplier_for_level(1) - 0.094) < 1e-6
@@ -122,3 +151,10 @@ def test_real_file_reference_values():
         s = dex.sheet(tid)
         assert s["baseStats"] == {"attack": atk, "defense": dfn, "stamina": sta}
         assert s["maxCpLevel40"] == cp
+
+    # Mega Charizard X/Y must be present with their override typing
+    mega = {k for k in dex.pokemon_keys() if k.startswith("V0006_POKEMON_CHARIZARD::TEMPEVO::")}
+    assert len(mega) == 2
+    x = dex.sheet("V0006_POKEMON_CHARIZARD::TEMPEVO::2")
+    assert x["types"] == ["Fire", "Dragon"]
+    assert x["baseStats"] == {"attack": 273, "defense": 213, "stamina": 186}

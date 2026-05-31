@@ -124,11 +124,9 @@ class ViewerApp:
         self.listbox.delete(0, "end")
         self._visible: list[str] = []
         for key in self._keys:
-            if term and term not in key.lower():
+            label = self.dex.list_label(key)
+            if term and term not in key.lower() and term not in label.lower():
                 continue
-            import re
-            m = re.match(r"^V(\d+)_POKEMON_(.+)$", key)
-            label = f"#{int(m.group(1)):04d}  {m.group(2).replace('_', ' ').title()}" if m else key
             self.listbox.insert("end", label)
             self._visible.append(key)
 

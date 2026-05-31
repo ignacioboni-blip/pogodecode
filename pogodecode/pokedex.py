@@ -53,8 +53,19 @@ PF_HEIGHT_M = "15"
 PF_WEIGHT_KG = "16"
 PF_EVOLUTION = "26"      # {1: evolves-to id, 3: candy cost, ...}
 PF_FORM = "28"
+PF_TEMP_EVO = "51"       # repeated temporary-evolution (Mega) overrides
 PF_SECOND_MOVE = "36"    # {1: stardust, 2: candy} to unlock 2nd charge move
 PF_SHADOW = "46"         # {1: purify stardust, 2: purify candy, 3: purified, 4: shadow move}
+
+# Temp-evolution sub-message fields and the evo-id enum -> readable name.
+TE_STATS = "2"           # {1: stamina, 2: attack, 3: defense}
+TE_HEIGHT = "3"
+TE_WEIGHT = "4"
+TE_TYPE1 = "5"
+TE_TYPE2 = "6"
+TEMP_EVO_NAMES = {1: "Mega", 2: "Mega X", 3: "Mega Y", 4: "Primal"}
+# synthetic-key separator used to expose Mega forms as their own list entries
+TEMPEVO_SEP = "::TEMPEVO::"
 
 # --- field map: MoveSettings (PvE, data field 4) ---------------------------
 MF_PVE = "4"
@@ -212,13 +223,26 @@ class Pokedex:
     def _build(self) -> None:
         self._build_moves()
         self._build_levels()
+        base_keys = [
+            k for k, v in self._by_id.items()
+            if _RE_POKEMON.match(k)
+            and isinstance(v, dict)
+            and isinstance(v.get(PF_SETTINGS), dict)
+            and PF_STATS in v[PF_SETTINGS]
+        ]
+        # Expose each Mega / temporary-evolution override as its own entry.
+        keys: List[str] = []
+        for k in base_keys:
+            keys.append(k)
+            overrides = self._by_id[k][PF_SETTINGS].get(PF_TEMP_EVO)
+            if isinstance(overrides, dict):
+                overrides = [overrides]
+            if isinstance(overrides, list):
+                for ov in overrides:
+                    if isinstance(ov, dict) and TE_STATS in ov:
+                        keys.append(f"{k}{TEMPEVO_SEP}{ov.get('1', 0)}")
         self._pokemon_keys = sorted(
-            (k for k, v in self._by_id.items()
-             if _RE_POKEMON.match(k)
-             and isinstance(v, dict)
-             and isinstance(v.get(PF_SETTINGS), dict)
-             and PF_STATS in v[PF_SETTINGS]),
-            key=lambda k: (int(_RE_POKEMON.match(k).group(1)), k),
+            keys, key=lambda x: (int(_RE_POKEMON.match(x.split(TEMPEVO_SEP)[0]).group(1)), x)
         )
 
     def _build_moves(self) -> None:
@@ -290,18 +314,57 @@ class Pokedex:
         cp = int((a * math.sqrt(d) * math.sqrt(s)) / 10.0)
         return max(cp, 10)
 
+    def _temp_evo_override(self, settings: Dict[str, Any], evo_id: int) -> Optional[Dict[str, Any]]:
+        ov = settings.get(PF_TEMP_EVO)
+        if isinstance(ov, dict):
+            ov = [ov]
+        if isinstance(ov, list):
+            for entry in ov:
+                if isinstance(entry, dict) and int(entry.get("1", 0) or 0) == evo_id:
+                    return entry
+        return None
+
+    def list_label(self, key: str) -> str:
+        """Human label for a (possibly Mega) entry, used by the list UI."""
+        base, _, evo = key.partition(TEMPEVO_SEP)
+        m = _RE_POKEMON.match(base)
+        name = _prettify(m.group(2)) if m else base
+        dex = int(m.group(1)) if m else 0
+        if evo:
+            name = f"{TEMP_EVO_NAMES.get(int(evo), 'Mega')} {name}"
+        return f"#{dex:04d}  {name}"
+
     def sheet(self, template_id: str) -> Dict[str, Any]:
-        """Build a readable info sheet for one Pokemon template."""
-        data = self._by_id[template_id]
+        """Build a readable info sheet for one Pokemon entry.
+
+        ``template_id`` may carry a Mega/temp-evolution suffix
+        (``<base>::TEMPEVO::<id>``), in which case overridden stats and typing
+        are applied on top of the base species data.
+        """
+        base_id, _, evo_token = template_id.partition(TEMPEVO_SEP)
+        data = self._by_id[base_id]
         s = data[PF_SETTINGS]
+
+        override = self._temp_evo_override(s, int(evo_token)) if evo_token else None
+        ov_stats = override.get(TE_STATS, {}) if override else {}
+
         stats = s.get(PF_STATS, {})
-        atk = int(stats.get(PF_STAT_ATTACK, 0) or 0)
-        dfn = int(stats.get(PF_STAT_DEFENSE, 0) or 0)
-        sta = int(stats.get(PF_STAT_STAMINA, 0) or 0)
+        atk = int((ov_stats.get(PF_STAT_ATTACK) if override else None) or stats.get(PF_STAT_ATTACK, 0) or 0)
+        dfn = int((ov_stats.get(PF_STAT_DEFENSE) if override else None) or stats.get(PF_STAT_DEFENSE, 0) or 0)
+        sta = int((ov_stats.get(PF_STAT_STAMINA) if override else None) or stats.get(PF_STAT_STAMINA, 0) or 0)
 
-        types = [TYPE_NAMES.get(int(s[t]), str(s[t]))
-                 for t in (PF_TYPE1, PF_TYPE2) if t in s and s[t]]
+        if override:
+            type_src = {PF_TYPE1: override.get(TE_TYPE1), PF_TYPE2: override.get(TE_TYPE2)}
+            height = override.get(TE_HEIGHT, s.get(PF_HEIGHT_M))
+            weight = override.get(TE_WEIGHT, s.get(PF_WEIGHT_KG))
+        else:
+            type_src = s
+            height = s.get(PF_HEIGHT_M)
+            weight = s.get(PF_WEIGHT_KG)
+        types = [TYPE_NAMES.get(int(type_src[t]), str(type_src[t]))
+                 for t in (PF_TYPE1, PF_TYPE2) if type_src.get(t)]
 
+        # Mega forms use the base species movepool.
         fast = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_QUICK_MOVES))]
         charge = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_CHARGE_MOVES))]
 
@@ -312,23 +375,29 @@ class Pokedex:
         second = s.get(PF_SECOND_MOVE, {})
         shadow = s.get(PF_SHADOW, {})
 
-        m = _RE_POKEMON.match(template_id)
+        m = _RE_POKEMON.match(base_id)
         dex = int(m.group(1)) if m else 0
+        name = _prettify(m.group(2)) if m else base_id
+        if override:
+            name = f"{TEMP_EVO_NAMES.get(int(evo_token), 'Mega')} {name}"
 
         sheet: Dict[str, Any] = {
             "templateId": template_id,
             "dexNumber": dex,
-            "name": _prettify(m.group(2)) if m else template_id,
+            "name": name,
             "form": s.get(PF_FORM),
+            "isMega": bool(override),
             "types": types,
             "baseStats": {"attack": atk, "defense": dfn, "stamina": sta},
-            "heightM": s.get(PF_HEIGHT_M),
-            "weightKg": s.get(PF_WEIGHT_KG),
+            "heightM": height,
+            "weightKg": weight,
             "baseCaptureRate": capture,
             "fastMoves": fast,
             "chargeMoves": charge,
             "maxCpLevel40": self.max_cp(atk, dfn, sta, level=40),
         }
+        if override:
+            return sheet
         if isinstance(evo, dict) and evo:
             sheet["evolution"] = {
                 "candyCost": evo.get("3"),
