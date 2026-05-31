@@ -54,10 +54,33 @@ def main(argv=None) -> int:
     p.add_argument("--moves", action="store_true", help="list every move with stats")
     p.add_argument("--type-chart", action="store_true", help="print the type-effectiveness chart")
     p.add_argument("--validate", action="store_true", help="print a data sanity-check report")
+    p.add_argument("--weather", action="store_true", help="print weather -> boosted types")
+    p.add_argument("--items", action="store_true", help="list all items")
+    p.add_argument("--leagues", action="store_true", help="list PvP leagues with CP caps")
+    p.add_argument("--template", metavar="ID", help="print one decoded template by id")
+    p.add_argument("--search", metavar="TERM", help="list template ids matching TERM")
+    p.add_argument("--diff", metavar="OTHER", help="diff this file against another GAME_MASTER/JSON")
     args = p.parse_args(argv)
+
+    if args.diff:
+        from .pokedex import diff_files
+        print(json.dumps(diff_files(args.input, args.diff), indent=2, ensure_ascii=False))
+        return 0
 
     dex = load_pokedex(args.input)
 
+    if args.weather:
+        print(json.dumps(dex.weather_summary(), indent=2, ensure_ascii=False)); return 0
+    if args.items:
+        print(json.dumps(dex.items(), indent=2, ensure_ascii=False)); return 0
+    if args.leagues:
+        print(json.dumps(dex.leagues(), indent=2, ensure_ascii=False)); return 0
+    if args.search:
+        for tid in dex.search_templates(args.search):
+            print(tid)
+        return 0
+    if args.template:
+        print(json.dumps(dex.template(args.template), indent=2, ensure_ascii=False)); return 0
     if args.validate:
         print(json.dumps(dex.validate(), indent=2, ensure_ascii=False))
         return 0

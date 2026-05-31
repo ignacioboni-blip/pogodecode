@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 from .gamemaster import decode_game_master
 
-__all__ = ["Pokedex", "load_pokedex"]
+__all__ = ["Pokedex", "load_pokedex", "diff_pokedex", "diff_files"]
 
 # --- enums -----------------------------------------------------------------
 
@@ -53,6 +53,7 @@ PF_HEIGHT_M = "15"
 PF_WEIGHT_KG = "16"
 PF_EVOLUTION = "26"      # {1: evolves-to id, 3: candy cost, ...}
 PF_FORM = "28"
+PF_BUDDY_KM = "23"       # buddy walked distance (km per candy)
 PF_TEMP_EVO = "51"       # repeated temporary-evolution (Mega) overrides
 PF_SECOND_MOVE = "36"    # {1: stardust, 2: candy} to unlock 2nd charge move
 PF_SHADOW = "46"         # {1: purify stardust, 2: purify candy, 3: purified, 4: shadow move}
@@ -90,6 +91,26 @@ PL_REQUIRED_XP = "2"     # packed varint array
 _RE_POKEMON = re.compile(r"^V(\d+)_POKEMON_(.+)$")
 _RE_MOVE = re.compile(r"^(?:COMBAT_)?V(\d+)_MOVE_(.+)$")
 _RE_TYPE = re.compile(r"^POKEMON_TYPE_([A-Z]+)$")
+_RE_WEATHER = re.compile(r"^WEATHER_AFFINITY_(.+)$")
+_RE_ITEM = re.compile(r"^ITEM_(.+)$")
+_RE_LEAGUE = re.compile(r"^COMBAT_LEAGUE_(.+)$")
+_RE_FRIENDSHIP = re.compile(r"^FRIENDSHIP_LEVEL_(\d+)$")
+
+# Weather affinity: data field 25 = {1: weather id, 2: packed boosted type ids}
+WX_SETTINGS = "25"
+WX_TYPES = "2"
+# Item: data field 3 = {1: item id, 2: category}
+IT_SETTINGS = "3"
+IT_ID = "1"
+IT_CATEGORY = "2"
+# Combat league: data field 35; CP cap at 4 -> 2 -> 2
+LG_SETTINGS = "35"
+LG_TITLE = "1"
+LG_BANNED = "7"          # packed pokemon ids excluded/allowed
+# Friendship: data field 31 = {1: unlock days, 3: attack bonus multiplier}
+FR_SETTINGS = "31"
+FR_UNLOCK_DAYS = "1"
+FR_ATTACK_BONUS = "3"
 
 # --- field map: POKEMON_TYPE_* (type effectiveness, data field 8) ----------
 TY_SETTINGS = "8"
@@ -247,6 +268,7 @@ class Pokedex:
         self._build_levels()
         self._build_type_chart()
         self._build_upgrade_costs()
+        self._build_weather()
         base_keys = [
             k for k, v in self._by_id.items()
             if _RE_POKEMON.match(k)
@@ -268,6 +290,13 @@ class Pokedex:
         self._pokemon_keys = sorted(
             keys, key=lambda x: (int(_RE_POKEMON.match(x.split(TEMPEVO_SEP)[0]).group(1)), x)
         )
+        # pokemon id enum (settings field 1) -> readable name, for evolution targets
+        self._id_to_name: Dict[int, str] = {}
+        for k in base_keys:
+            pid = self._by_id[k][PF_SETTINGS].get(PF_DEX_ENUM)
+            mm = _RE_POKEMON.match(k)
+            if isinstance(pid, int) and mm and pid not in self._id_to_name:
+                self._id_to_name[pid] = _prettify(mm.group(2))
 
     def _build_moves(self) -> None:
         for tid, data in self._by_id.items():
@@ -307,6 +336,23 @@ class Pokedex:
                 vals = _unpack_floats(scalars["__bytes__"])
                 if len(vals) >= 18:
                     self.type_chart[int(type_id)] = vals[:18]
+
+    def _build_weather(self) -> None:
+        """weather name -> [boosted type ids]; and reverse type id -> weathers."""
+        self.weather_boosts: Dict[str, List[int]] = {}
+        self.type_weather: Dict[int, List[str]] = {}
+        for tid, data in self._by_id.items():
+            m = _RE_WEATHER.match(tid)
+            if not m or not isinstance(data, dict):
+                continue
+            blk = data.get(WX_SETTINGS)
+            if not isinstance(blk, dict):
+                continue
+            name = _prettify(m.group(1))
+            type_ids = _packed_move_ids(blk.get(WX_TYPES))
+            self.weather_boosts[name] = type_ids
+            for t in type_ids:
+                self.type_weather.setdefault(t, []).append(name)
 
     def _build_upgrade_costs(self) -> None:
         self.upgrade_candy: List[int] = []
@@ -482,6 +528,71 @@ class Pokedex:
             "cpMultiplierLevels": len(self.cp_multipliers),
         }
 
+    # -- items / leagues / friendship / weather -----------------------------
+    def items(self) -> List[Dict[str, Any]]:
+        out = []
+        for tid, data in self._by_id.items():
+            m = _RE_ITEM.match(tid)
+            if not m or not isinstance(data, dict) or not isinstance(data.get(IT_SETTINGS), dict):
+                continue
+            s = data[IT_SETTINGS]
+            out.append({
+                "name": _prettify(m.group(1)),
+                "templateId": tid,
+                "itemId": s.get(IT_ID),
+                "category": s.get(IT_CATEGORY),
+            })
+        return sorted(out, key=lambda r: (r["itemId"] is None, r["itemId"] or 0))
+
+    def leagues(self) -> List[Dict[str, Any]]:
+        out = []
+        for tid, data in self._by_id.items():
+            m = _RE_LEAGUE.match(tid)
+            if not m or not isinstance(data, dict) or not isinstance(data.get(LG_SETTINGS), dict):
+                continue
+            s = data[LG_SETTINGS]
+            cap = None
+            cond = s.get("4")
+            if isinstance(cond, dict) and isinstance(cond.get("2"), dict):
+                cap = cond["2"].get("2")
+            out.append({
+                "name": _prettify(m.group(1)),
+                "templateId": tid,
+                "title": s.get(LG_TITLE),
+                "cpCap": cap,
+                "restrictedCount": len(_packed_move_ids(s.get(LG_BANNED))),
+            })
+        return sorted(out, key=lambda r: r["name"])
+
+    def friendship_levels(self) -> List[Dict[str, Any]]:
+        out = []
+        for tid, data in self._by_id.items():
+            m = _RE_FRIENDSHIP.match(tid)
+            if not m or not isinstance(data, dict) or not isinstance(data.get(FR_SETTINGS), dict):
+                continue
+            s = data[FR_SETTINGS]
+            out.append({
+                "level": int(m.group(1)),
+                "unlockDays": s.get(FR_UNLOCK_DAYS),
+                "attackBonusMultiplier": s.get(FR_ATTACK_BONUS),
+            })
+        return sorted(out, key=lambda r: r["level"])
+
+    def weather_summary(self) -> Dict[str, List[str]]:
+        return {w: [TYPE_NAMES.get(t, str(t)) for t in ts]
+                for w, ts in sorted(self.weather_boosts.items())}
+
+    # -- generic template access -------------------------------------------
+    def template_ids(self) -> List[str]:
+        return sorted(self._by_id)
+
+    def template(self, template_id: str) -> Any:
+        return self._by_id.get(template_id)
+
+    def search_templates(self, term: str, limit: int = 500) -> List[str]:
+        term = term.lower()
+        return [tid for tid in sorted(self._by_id) if term in tid.lower()][:limit]
+
     def _temp_evo_override(self, settings: Dict[str, Any], evo_id: int) -> Optional[Dict[str, Any]]:
         ov = settings.get(PF_TEMP_EVO)
         if isinstance(ov, dict):
@@ -562,6 +673,8 @@ class Pokedex:
             "baseStats": {"attack": atk, "defense": dfn, "stamina": sta},
             "heightM": height,
             "weightKg": weight,
+            "buddyDistanceKm": s.get(PF_BUDDY_KM),
+            "boostedWeather": sorted({w for t in type_ids for w in self.type_weather.get(t, [])}),
             "baseCaptureRate": capture,
             "fastMoves": fast,
             "chargeMoves": charge,
@@ -569,11 +682,19 @@ class Pokedex:
         }
         if override:
             return sheet
-        if isinstance(evo, dict) and evo:
-            sheet["evolution"] = {
-                "candyCost": evo.get("3"),
-                "evolvesToId": evo.get("1"),
-            }
+        branches = evo if isinstance(evo, list) else ([evo] if isinstance(evo, dict) and evo else [])
+        evo_list = []
+        for br in branches:
+            if not isinstance(br, dict):
+                continue
+            target_id = br.get("1")
+            evo_list.append({
+                "candyCost": br.get("3"),
+                "evolvesTo": self._id_to_name.get(target_id) if isinstance(target_id, int) else None,
+                "evolvesToId": target_id,
+            })
+        if evo_list:
+            sheet["evolution"] = evo_list
         if isinstance(second, dict) and second:
             sheet["secondChargeMove"] = {
                 "stardust": second.get("1"), "candy": second.get("2"),
@@ -619,3 +740,46 @@ def load_pokedex(path: str) -> Pokedex:
         by_id = decode_game_master(path)["templatesById"]
 
     return Pokedex(by_id, source=os.path.basename(path))
+
+
+# --- diff ------------------------------------------------------------------
+
+def diff_pokedex(old: "Pokedex", new: "Pokedex") -> Dict[str, Any]:
+    """Compare two Pokédex builds and report what changed between updates.
+
+    Reports template add/remove counts, and per-Pokémon changes to the fields a
+    verifier usually cares about (stats, typing, moves, max CP, capture rate).
+    """
+    old_ids, new_ids = set(old.template_ids()), set(new.template_ids())
+    added = sorted(new_ids - old_ids)
+    removed = sorted(old_ids - new_ids)
+
+    tracked = ("name", "types", "baseStats", "maxCpLevel40", "baseCaptureRate",
+               "buddyDistanceKm")
+    changes: List[Dict[str, Any]] = []
+    common = [k for k in new.pokemon_keys() if k in set(old.pokemon_keys())]
+    for key in common:
+        a, b = old.sheet(key), new.sheet(key)
+        diffs = {}
+        for f in tracked:
+            if a.get(f) != b.get(f):
+                diffs[f] = {"old": a.get(f), "new": b.get(f)}
+        am = sorted(m["name"] for m in a["fastMoves"] + a["chargeMoves"])
+        bm = sorted(m["name"] for m in b["fastMoves"] + b["chargeMoves"])
+        if am != bm:
+            diffs["moves"] = {"added": sorted(set(bm) - set(am)),
+                              "removed": sorted(set(am) - set(bm))}
+        if diffs:
+            changes.append({"templateId": key, "name": b["name"], "changes": diffs})
+
+    return {
+        "old": old.source, "new": new.source,
+        "templatesAdded": {"count": len(added), "sample": added[:25]},
+        "templatesRemoved": {"count": len(removed), "sample": removed[:25]},
+        "pokemonChanged": {"count": len(changes), "details": changes[:200]},
+    }
+
+
+def diff_files(old_path: str, new_path: str) -> Dict[str, Any]:
+    """Convenience: load two GAME_MASTER files (or JSON exports) and diff them."""
+    return diff_pokedex(load_pokedex(old_path), load_pokedex(new_path))

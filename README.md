@@ -83,6 +83,14 @@ verification — no field numbers, just names and values:
 - **Power-up & CP tables** — candy/stardust to max, CP at L20/30/40/50
 - **Validation** tab — a sanity-check report over the whole file (Pokémon with
   no moves, unresolved move IDs, stat/type outliers, etc.)
+- **Weather boosts** — per-Pokémon "boosted in: …" plus a weather→types table
+- **Buddy distance** and **evolution** (candy cost + resolved target name)
+- **Items**, **PvP leagues** (CP caps), **friendship** bonuses tabs
+- **Filter / sort / compare** — filter the Pokédex by type, sort by stat or max
+  CP, and pin up to 4 Pokémon for a side-by-side compare
+- **Templates** tab — search and view *any* decoded template (not just Pokémon)
+- **Diff** tab — load a second GAME_MASTER and see exactly what changed between
+  updates: added/removed templates and per-Pokémon stat/type/move changes
 
 It works by layering a small, documented field map (`pogodecode/pokedex.py`)
 over the schema-free decode. Every mapped field was checked against known
@@ -96,6 +104,12 @@ python -m pogodecode.dexcli GAME_MASTER --name CHARIZARD   # print a sheet
 python -m pogodecode.dexcli GAME_MASTER --moves            # list every move
 python -m pogodecode.dexcli GAME_MASTER --type-chart       # effectiveness matrix
 python -m pogodecode.dexcli GAME_MASTER --validate         # sanity-check report
+python -m pogodecode.dexcli GAME_MASTER --weather          # weather -> types
+python -m pogodecode.dexcli GAME_MASTER --items            # item list
+python -m pogodecode.dexcli GAME_MASTER --leagues          # PvP CP caps
+python -m pogodecode.dexcli GAME_MASTER --search FRIENDSHIP # find templates
+python -m pogodecode.dexcli GAME_MASTER --template COMBAT_SETTINGS
+python -m pogodecode.dexcli OLD_GAME_MASTER --diff NEW_GAME_MASTER  # what changed
 python -m pogodecode.dexcli GAME_MASTER --export sheets.json
 ```
 

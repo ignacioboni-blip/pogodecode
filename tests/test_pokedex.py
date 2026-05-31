@@ -54,10 +54,19 @@ def _make_dex():
             "8": {"1": 128, "2": 118, "3": 111},
             "9": {"__bytes__": quick},
             "10": {"__bytes__": charge},
-            "15": 0.7, "16": 6.9,
+            "15": 0.7, "16": 6.9, "23": 3.0,
             "7": {"20": 0.2},
             "26": {"1": 2, "3": 25},
         }},
+        "V0002_POKEMON_IVYSAUR": {"2": {
+            "1": 2, "4": 12, "5": 4, "8": {"1": 160, "2": 151, "3": 143},
+            "9": {"__bytes__": quick}, "10": {"__bytes__": charge}, "23": 3.0,
+        }},
+        "WEATHER_AFFINITY_RAINY": {"25": {
+            "1": 2, "2": {"__bytes__": base64.b64encode(_packed_varints([11, 13, 7])).decode()}}},
+        "ITEM_POKE_BALL": {"3": {"1": 1, "2": 1}},
+        "COMBAT_LEAGUE_GREAT": {"35": {"1": "great", "4": {"1": 1, "2": {"2": 1500}}}},
+        "FRIENDSHIP_LEVEL_4": {"31": {"1": 90, "3": 1.1}},
         "V0006_POKEMON_CHARIZARD": {"2": {
             "1": 6, "4": 10, "5": 3,
             "8": {"1": 186, "2": 223, "3": 173},
@@ -102,7 +111,7 @@ def test_sheet_core_fields():
     assert s["types"] == ["Grass", "Poison"]
     assert s["baseStats"] == {"attack": 118, "defense": 111, "stamina": 128}
     assert s["baseCaptureRate"] == 0.2
-    assert s["evolution"]["candyCost"] == 25
+    assert s["evolution"][0]["candyCost"] == 25
 
 
 def test_sheet_moves_resolved_with_signed_energy():
@@ -168,10 +177,43 @@ def test_power_up_summary():
 def test_validate_runs_clean_on_synthetic_data():
     dex = _make_dex()
     r = dex.validate()
-    assert r["pokemonChecked"] == 2
+    assert r["pokemonChecked"] == 3
     assert r["unresolvedMoveIds"]["count"] == 0
     assert r["statOutliers"]["count"] == 0
     assert r["typeChartAttackers"] == 2
+
+
+def test_weather_buddy_and_evolution_name():
+    dex = _make_dex()
+    # Rainy boosts Water/Electric/Bug in _make_dex
+    assert "Water" in dex.weather_summary().get("Rainy", [])
+    s = dex.sheet("V0001_POKEMON_BULBASAUR")
+    assert s["buddyDistanceKm"] == 3.0
+    assert s["evolution"][0]["evolvesTo"] == "Ivysaur"
+    assert s["evolution"][0]["candyCost"] == 25
+
+
+def test_items_leagues_friendship_templates():
+    dex = _make_dex()
+    items = dex.items()
+    assert any(it["name"] == "Poke Ball" and it["itemId"] == 1 for it in items)
+    leagues = {lg["name"]: lg["cpCap"] for lg in dex.leagues()}
+    assert leagues.get("Great") == 1500
+    fr = {f["level"]: f["attackBonusMultiplier"] for f in dex.friendship_levels()}
+    assert fr.get(4) == 1.1
+    assert "POKEMON_TYPE_FIRE" in dex.template_ids()
+    assert dex.search_templates("type_fire") == ["POKEMON_TYPE_FIRE"]
+
+
+def test_diff_detects_stat_change():
+    from pogodecode.pokedex import diff_pokedex
+    a = _make_dex()
+    b = _make_dex()
+    b._by_id["V0001_POKEMON_BULBASAUR"]["2"]["8"]["2"] = 200  # bump attack
+    report = diff_pokedex(a, b)
+    assert report["pokemonChanged"]["count"] == 1
+    change = report["pokemonChanged"]["details"][0]
+    assert change["changes"]["baseStats"]["new"]["attack"] == 200
 
 
 def test_cp_multiplier_indexing():
