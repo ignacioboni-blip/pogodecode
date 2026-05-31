@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to this project are documented here. This project adheres
+to [Semantic Versioning](https://semver.org/).
+
+## [1.0.0] - 2026-05-31
+
+First public release.
+
+### Decoder
+- Schema-free protobuf wire-format decoder for the modern (binary) Pokémon GO
+  `GAME_MASTER` file — no `.proto` schema needed, so it survives client updates.
+- Tkinter GUI (`PoGoGameMasterDecoder`) and CLI to export clean JSON
+  (`templatesById`, `templates`, `categories`), pretty or minified.
+
+### Pokédex viewer (verification tool)
+- Readable per-Pokémon sheets: typing, base stats, height/weight, base catch
+  rate, fast/charge moves (power/energy/duration/DPS/EPS), evolution cost.
+- **Max CP at Level 40, 50, and 51 (best buddy)** — using correct integer-level
+  CP-multiplier indexing (`index = level - 1`); avoids the common ~6% L50 error.
+- **Mega / Primal forms** (incl. Mega X / Y) with overridden stats and typing.
+- **Type matchups**: per-Pokémon weaknesses/resistances + full 18×18 chart.
+- **Weather boosts**, **buddy distance**, **power-up cost** tables.
+- **Items**, **PvP leagues** (CP caps), **friendship** bonuses.
+- **Validation** report: no-move Pokémon, unresolved move IDs, stat/type outliers.
+- **Diff** two GAME_MASTER files to see exactly what changed between updates.
+- Filter by type, sort by stat/CP, compare Pokémon side-by-side, and a generic
+  search over every decoded template.
+
+### Packaging
+- One-click Windows build; CI builds standalone binaries for Windows, macOS and
+  Linux and attaches them to GitHub Releases on version tags.

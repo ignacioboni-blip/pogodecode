@@ -1,13 +1,51 @@
-# PoGo GAME_MASTER Decoder
+<h1 align="center">PoGo GAME_MASTER Tools</h1>
 
-A Windows desktop tool that decodes the **Pokémon GO `GAME_MASTER` file** into
-clean, usable **JSON**.
+<p align="center">
+  <img src="assets/icon.png" width="96" alt="logo"><br>
+  <b>Decode the Pokémon GO <code>GAME_MASTER</code> file to clean JSON, and verify it in a Pokédex viewer.</b>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
+  <img src="https://img.shields.io/badge/python-3.8%2B-blue" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="platforms">
+  <img src="https://img.shields.io/badge/dependencies-none-brightgreen" alt="no deps">
+</p>
+
+Two apps in one project:
+
+| App | What it does |
+|---|---|
+| **GAME_MASTER Decoder** | Turns the binary `GAME_MASTER` into clean, schema-free JSON |
+| **Pokédex Viewer** | Reads that data into readable, verifiable info sheets (stats, moves, types, CP, weather, items, leagues, diffs…) |
 
 The classic decoders (e.g. the old
 [`pogo-game-master-decoder`](https://github.com/apavlinovic/pogo-game-master-decoder)
 and the JSON-era Silph Road / PoGoHub guides) target the *legacy* GAME_MASTER
 format. Modern GAME_MASTER files are a **binary protobuf**, so those tools just
 produce garbage or crash. This project fixes that.
+
+## Download
+
+Grab the latest prebuilt apps from the
+[**Releases**](https://github.com/ignacioboni-blip/pogodecode/releases) page —
+standalone binaries for **Windows**, **macOS** and **Linux**, no Python needed:
+
+- `PoGoGameMasterDecoder` — decode → JSON
+- `PoGoPokedexViewer` — browse / verify
+
+> Windows SmartScreen may warn on first run because the binaries aren't
+> code-signed (signing needs a paid certificate). Click *More info → Run anyway*,
+> or build from source yourself (below).
+
+## Quickstart
+
+```bash
+# no dependencies; Python 3.8+
+python -m pogodecode.cli GAME_MASTER -o game_master.json     # decode to JSON
+python -m pogodecode.dexcli GAME_MASTER --name CHARIZARD     # read a sheet
+python -m pogodecode.viewer                                   # launch the GUI
+```
 
 ## Why it doesn't go out of date
 
@@ -192,16 +230,27 @@ pogodecode/
   pokedex.py            field map: decoded data -> named Pokémon/move sheets
   cli.py                decoder command-line entry point
   dexcli.py             Pokédex command-line entry point
-  gui.py                Tkinter decoder UI
-  viewer.py             Tkinter Pokédex viewer UI
-run_gui.py              decoder .exe entry point
-run_viewer.py           viewer .exe entry point
-pogodecode.spec         PyInstaller build spec (builds both .exes)
+  gui.py / viewer.py    Tkinter UIs (decoder / Pokédex viewer)
+  _icon.py / _config.py embedded icon + remembered-folder helper
+run_gui.py              decoder app entry point
+run_viewer.py           viewer app entry point
+pogodecode.spec         PyInstaller build spec (builds both apps)
+version_info.txt        Windows .exe version metadata
 build_windows.bat       one-click Windows build
+.github/workflows/      CI: lint, test, build Win/macOS/Linux, release on tags
 tests/                  unit + integration tests
 ```
 
-## Legal
+## Contributing & releases
 
-`GAME_MASTER` content is © Niantic / The Pokémon Company. This tool only
-decodes a file you already have; it ships no game data.
+- Run `pytest` and `pyflakes pogodecode` before sending a change.
+- Tag a release with `git tag v1.0.0 && git push --tags`; CI builds the
+  binaries for all three platforms and attaches them to the GitHub Release.
+- Version history lives in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE). Pokémon and Pokémon GO are trademarks of Nintendo / The Pokémon
+Company / Niantic. This is an unofficial fan tool, not affiliated with or
+endorsed by them, and it ships **no** game data — it only decodes a
+`GAME_MASTER` file you already possess.

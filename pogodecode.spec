@@ -1,10 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec: builds BOTH standalone Windows apps in one pass:
-#   dist/PoGoGameMasterDecoder.exe  - decode GAME_MASTER -> JSON
-#   dist/PoGoPokedexViewer.exe      - browse decoded data (stats/moves/etc.)
+# PyInstaller spec: builds BOTH standalone apps in one pass.
+#   PoGoGameMasterDecoder  - decode GAME_MASTER -> JSON
+#   PoGoPokedexViewer      - browse decoded data (stats/moves/types/etc.)
 # Build with:  pyinstaller pogodecode.spec
+#
+# Cross-platform: produces .exe on Windows, a binary on macOS/Linux. The icon
+# and Windows version resource are applied when present / on Windows.
+
+import os
+import sys
 
 block_cipher = None
+
+# Icon (.ico) and the Windows version resource only apply on Windows.
+_ICON = os.path.join("assets", "icon.ico")
+icon = _ICON if (sys.platform == "win32" and os.path.exists(_ICON)) else None
+version = "version_info.txt" if (sys.platform == "win32"
+                                 and os.path.exists("version_info.txt")) else None
 
 
 def _build(entry, name):
@@ -21,7 +33,7 @@ def _build(entry, name):
         noarchive=False,
     )
     pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-    exe = EXE(
+    return EXE(
         pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [],
         name=name,
         debug=False,
@@ -30,13 +42,14 @@ def _build(entry, name):
         upx=True,
         upx_exclude=[],
         runtime_tmpdir=None,
-        console=False,
+        console=False,          # GUI apps: no console window
         disable_windowed_traceback=False,
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
+        icon=icon,
+        version=version,
     )
-    return exe
 
 
 decoder = _build('run_gui.py', 'PoGoGameMasterDecoder')

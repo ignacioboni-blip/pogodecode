@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 
+from . import __version__
 from .pokedex import load_pokedex
 
 
@@ -50,6 +51,7 @@ def _format_sheet(s: dict) -> str:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="pogodex", description="Pokémon GO GAME_MASTER info sheets.")
+    p.add_argument("--version", action="version", version=f"pogodex {__version__}")
     p.add_argument("input", help="GAME_MASTER file or decoded JSON")
     p.add_argument("--name", help="filter by (sub)string, e.g. BULBASAUR or CHARIZARD")
     p.add_argument("--export", metavar="PATH", help="write all sheets to a JSON file")

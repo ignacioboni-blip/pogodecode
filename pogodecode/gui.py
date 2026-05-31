@@ -17,7 +17,7 @@ import traceback
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__, write_json
+from . import __version__, _config, _icon, write_json
 from .gamemaster import decode_game_master
 from .protobuf_decoder import ProtobufDecodeError
 
@@ -27,6 +27,7 @@ class DecoderApp:
         self.root = root
         self.root.title(f"PoGo GAME_MASTER Decoder v{__version__}")
         self.root.minsize(640, 460)
+        _icon.apply_icon(root)
 
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
@@ -82,9 +83,11 @@ class DecoderApp:
     def _pick_input(self) -> None:
         path = filedialog.askopenfilename(
             title="Select GAME_MASTER file",
+            initialdir=_config.last_dir() or None,
             filetypes=[("All files", "*.*"), ("GAME_MASTER", "*GAME_MASTER*")],
         )
         if path:
+            _config.set_last_dir(path)
             self.input_path.set(path)
             if not self.output_path.get():
                 self.output_path.set(os.path.splitext(path)[0] + ".json"
@@ -93,10 +96,12 @@ class DecoderApp:
     def _pick_output(self) -> None:
         path = filedialog.asksaveasfilename(
             title="Save decoded JSON",
+            initialdir=_config.last_dir() or None,
             defaultextension=".json",
             filetypes=[("JSON", "*.json"), ("All files", "*.*")],
         )
         if path:
+            _config.set_last_dir(path)
             self.output_path.set(path)
 
     # -- logging / status ---------------------------------------------------

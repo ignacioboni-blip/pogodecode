@@ -4,5 +4,6 @@
 # Build-time only (to produce the Windows .exe):
 pyinstaller>=6.0
 
-# Test-time only:
+# Test/lint-time only:
 pytest>=7.0
+pyflakes>=3.0

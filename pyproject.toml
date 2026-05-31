@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pogodecode"
+version = "1.0.0"
+description = "Schema-free Pokémon GO GAME_MASTER decoder with a Pokédex verification viewer"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Ignacio Boni" }]
+keywords = ["pokemon-go", "game-master", "protobuf", "decoder", "pokedex"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+    "Topic :: Utilities",
+]
+# Runtime needs only the Python standard library (struct, base64, json, tkinter).
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ignacioboni-blip/pogodecode"
+Issues = "https://github.com/ignacioboni-blip/pogodecode/issues"
+Changelog = "https://github.com/ignacioboni-blip/pogodecode/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0"]
+dev = ["pytest>=7.0", "pyflakes>=3.0"]
+
+[project.scripts]
+pogodecode = "pogodecode.cli:main"
+pogodex = "pogodecode.dexcli:main"
+
+[project.gui-scripts]
+pogodecode-gui = "pogodecode.gui:main"
+pogodex-gui = "pogodecode.viewer:main"
+
+[tool.setuptools]
+packages = ["pogodecode"]

@@ -17,7 +17,7 @@ import traceback
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__
+from . import __version__, _config, _icon
 from .pokedex import TYPE_NAMES, diff_pokedex, load_pokedex
 
 
@@ -26,14 +26,39 @@ class ViewerApp:
         self.root = root
         self.root.title(f"PoGo Pokédex Viewer v{__version__}")
         self.root.minsize(940, 640)
+        _icon.apply_icon(root)
         self.dex = None
         self._keys: list[str] = []
         self._sheet_cache: dict = {}
         self._compare: list[str] = []
         self._events: "queue.Queue[tuple]" = queue.Queue()
 
+        self._build_menu()
         self._build()
+        self.root.bind("<Control-o>", lambda *_: self._open())
         self.root.after(100, self._drain)
+
+    def _build_menu(self) -> None:
+        menubar = tk.Menu(self.root)
+        filem = tk.Menu(menubar, tearoff=0)
+        filem.add_command(label="Open GAME_MASTER / JSON…  (Ctrl+O)", command=self._open)
+        filem.add_command(label="Export Pokédex sheets → JSON…", command=self._export)
+        filem.add_separator()
+        filem.add_command(label="Exit", command=self.root.destroy)
+        menubar.add_cascade(label="File", menu=filem)
+        helpm = tk.Menu(menubar, tearoff=0)
+        helpm.add_command(label="About", command=self._about)
+        menubar.add_cascade(label="Help", menu=helpm)
+        self.root.config(menu=menubar)
+
+    def _about(self) -> None:
+        messagebox.showinfo(
+            "About",
+            f"PoGo GAME_MASTER Tools — Pokédex Viewer\nVersion {__version__}\n\n"
+            "Schema-free decoder + verification viewer for the Pokémon GO\n"
+            "GAME_MASTER file. MIT licensed.\n\n"
+            "Not affiliated with Niantic, Nintendo, or The Pokémon Company.\n"
+            "Ships no game data — it only reads a file you already have.")
 
     # -- layout -------------------------------------------------------------
     def _build(self) -> None:
@@ -65,6 +90,23 @@ class ViewerApp:
         if key not in self._sheet_cache:
             self._sheet_cache[key] = self.dex.sheet(key)
         return self._sheet_cache[key]
+
+    @staticmethod
+    def _make_sortable(tree: ttk.Treeview, cols) -> None:
+        """Click a column header to sort by it (numeric-aware), toggling order."""
+        def sort_by(col, descending):
+            def key(item):
+                v = tree.set(item, col)
+                try:
+                    return (0, float(v))
+                except ValueError:
+                    return (1, v.lower())
+            rows = sorted(tree.get_children(""), key=key, reverse=descending)
+            for i, item in enumerate(rows):
+                tree.move(item, "", i)
+            tree.heading(col, command=lambda c=col: sort_by(c, not descending))
+        for c in cols:
+            tree.heading(c, command=lambda c=c: sort_by(c, False))
 
     # -- Pokédex tab --------------------------------------------------------
     def _build_pokedex_tab(self) -> None:
@@ -131,6 +173,7 @@ class ViewerApp:
         for c, h in zip(cols, heads):
             self.moves_tv.heading(c, text=h)
             self.moves_tv.column(c, width=170 if c == "name" else 62, anchor="w")
+        self._make_sortable(self.moves_tv, cols)
         self.moves_tv.pack(fill="both", expand=True, padx=4, pady=4)
 
     def _build_typechart_tab(self) -> None:
@@ -150,6 +193,7 @@ class ViewerApp:
         self.items_tv = ttk.Treeview(tab, columns=cols, show="headings")
         for c, w in (("name", 220), ("id", 80), ("category", 100)):
             self.items_tv.heading(c, text=c.title()); self.items_tv.column(c, width=w, anchor="w")
+        self._make_sortable(self.items_tv, cols)
         self.items_tv.pack(fill="both", expand=True, padx=4, pady=4)
 
     def _build_leagues_tab(self) -> None:
@@ -158,6 +202,7 @@ class ViewerApp:
         self.leagues_tv = ttk.Treeview(tab, columns=cols, show="headings")
         for c, w in (("name", 280), ("cap", 100), ("restricted", 110)):
             self.leagues_tv.heading(c, text=c.title()); self.leagues_tv.column(c, width=w, anchor="w")
+        self._make_sortable(self.leagues_tv, cols)
         self.leagues_tv.pack(fill="both", expand=True, padx=4, pady=4)
 
     def _build_templates_tab(self) -> None:
@@ -195,9 +240,11 @@ class ViewerApp:
     def _open(self) -> None:
         path = filedialog.askopenfilename(
             title="Open GAME_MASTER or decoded JSON",
+            initialdir=_config.last_dir() or None,
             filetypes=[("All files", "*.*"), ("JSON", "*.json")])
         if not path:
             return
+        _config.set_last_dir(path)
         self.status.configure(text=f"Loading {os.path.basename(path)} …")
         self.file_lbl.configure(text=os.path.basename(path))
         threading.Thread(target=self._load_worker, args=(path,), daemon=True).start()
@@ -435,6 +482,7 @@ class ViewerApp:
             messagebox.showinfo("Nothing loaded", "Open a GAME_MASTER file first.")
             return
         other = filedialog.askopenfilename(title="Choose the OTHER GAME_MASTER / JSON",
+                                           initialdir=_config.last_dir() or None,
                                            filetypes=[("All files", "*.*"), ("JSON", "*.json")])
         if not other:
             return
@@ -454,9 +502,11 @@ class ViewerApp:
             messagebox.showinfo("Nothing loaded", "Open a GAME_MASTER file first.")
             return
         path = filedialog.asksaveasfilename(title="Export Pokédex sheets",
+                                            initialdir=_config.last_dir() or None,
                                             defaultextension=".json", filetypes=[("JSON", "*.json")])
         if not path:
             return
+        _config.set_last_dir(path)
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(self.dex.all_sheets(), fh, indent=2, ensure_ascii=False)
         self.status.configure(text=f"Exported {len(self._keys)} sheets → {path}")

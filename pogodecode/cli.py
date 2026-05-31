@@ -12,7 +12,7 @@ import argparse
 import sys
 import time
 
-from . import __version__, dumps_json, write_json
+from . import __version__, write_json
 from .gamemaster import decode_game_master
 from .protobuf_decoder import ProtobufDecodeError
 
