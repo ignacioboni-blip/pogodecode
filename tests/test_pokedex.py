@@ -233,15 +233,21 @@ def _real():
 def test_real_file_reference_values():
     from pogodecode.pokedex import load_pokedex
     dex = load_pokedex(_real())
+    # (atk, def, sta, maxCP@L40, maxCP@L50) - L50 values match in-game.
     cases = {
-        "V0001_POKEMON_BULBASAUR": (118, 111, 128, 1115),
-        "V0006_POKEMON_CHARIZARD": (223, 173, 186, 2889),
-        "V0150_POKEMON_MEWTWO": (300, 182, 214, 4178),
+        "V0001_POKEMON_BULBASAUR": (118, 111, 128, 1115, 1260),
+        "V0006_POKEMON_CHARIZARD": (223, 173, 186, 2889, 3266),
+        "V0150_POKEMON_MEWTWO": (300, 182, 214, 4178, 4724),
     }
-    for tid, (atk, dfn, sta, cp) in cases.items():
+    for tid, (atk, dfn, sta, cp40, cp50) in cases.items():
         s = dex.sheet(tid)
         assert s["baseStats"] == {"attack": atk, "defense": dfn, "stamina": sta}
-        assert s["maxCpLevel40"] == cp
+        assert s["maxCpLevel40"] == cp40
+        assert s["maxCpLevel50"] == cp50
+
+    # The Level-50 multiplier must be integer-indexed (0.8403), not the 0.8653 cap.
+    assert abs(dex.cp_multiplier_for_level(50) - 0.84030002) < 1e-6
+    assert abs(dex.cp_multiplier_for_level(40) - 0.79030001) < 1e-6
 
     # Mega Charizard X/Y must be present with their override typing
     mega = {k for k in dex.pokemon_keys() if k.startswith("V0006_POKEMON_CHARIZARD::TEMPEVO::")}

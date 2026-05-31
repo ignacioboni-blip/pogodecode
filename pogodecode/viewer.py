@@ -292,7 +292,9 @@ class ViewerApp:
         lines += [("", None), ("Base stats", "h2"),
                   (f"  Atk {bs['attack']}   Def {bs['defense']}   Sta {bs['stamina']}", None)]
         if s.get("maxCpLevel40") is not None:
-            lines.append((f"  Max CP (L40, perfect IV): {s['maxCpLevel40']}", None))
+            lines.append((f"  Max CP — L40: {s['maxCpLevel40']}   "
+                          f"L50: {s.get('maxCpLevel50','?')}   "
+                          f"L51 (best buddy): {s.get('maxCpLevel51BestBuddy','?')}", None))
         if self.dex:
             tbl = self.dex.cp_table(bs["attack"], bs["defense"], bs["stamina"], levels=[20, 30, 40, 50])
             lines.append(("  CP @ L20/30/40/50: " + " / ".join(str(r["cp"]) for r in tbl), None))

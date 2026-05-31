@@ -24,7 +24,8 @@ def _format_sheet(s: dict) -> str:
         f"Def {s['baseStats']['defense']}  Sta {s['baseStats']['stamina']}",
     ]
     if s.get("maxCpLevel40") is not None:
-        lines.append(f"  Max CP:   {s['maxCpLevel40']} (L40, perfect IV)")
+        lines.append(f"  Max CP:   L40 {s['maxCpLevel40']}  /  L50 {s.get('maxCpLevel50','?')}"
+                     f"  /  L51 best-buddy {s.get('maxCpLevel51BestBuddy','?')}  (perfect IV)")
     lines.append(f"  Size:     {s.get('heightM','?')} m / {s.get('weightKg','?')} kg")
     if s.get("baseCaptureRate") is not None:
         lines.append(f"  Capture:  {s['baseCaptureRate']*100:.1f}%")
@@ -41,8 +42,9 @@ def _format_sheet(s: dict) -> str:
 
     moves("Fast moves", s["fastMoves"])
     moves("Charge moves", s["chargeMoves"])
-    if s.get("evolution"):
-        lines.append(f"  Evolve:   {s['evolution'].get('candyCost','?')} candy")
+    for e in s.get("evolution", []) or []:
+        target = e.get("evolvesTo") or e.get("evolvesToId")
+        lines.append(f"  Evolve:   → {target} ({e.get('candyCost','?')} candy)")
     return "\n".join(lines)
 
 

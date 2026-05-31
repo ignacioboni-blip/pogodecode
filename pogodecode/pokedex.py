@@ -389,15 +389,17 @@ class Pokedex:
     def cp_multiplier_for_level(self, level: float) -> Optional[float]:
         """CP multiplier for a level from the GAME_MASTER table.
 
-        Layout in the file: indices 0..39 are integer levels 1..40; beyond that
-        the table steps in half levels (index 39 + 2*(level-40)).
+        This array is **integer-level indexed**: ``index = level - 1``. So L40 is
+        index 39 (0.7903) and L50 is index 49 (0.8403); L51-L55 (best-buddy boost)
+        continue at indices 50-54, then the table is padded flat at 0.8653.
+
+        NOTE: a frequent bug is assuming half-level steps after L40 (index =
+        39 + 2*(level-40)); that lands on the padded 0.8653 cap and overstates
+        Level-50 CP by ~6%. Integer indexing here matches the in-game values.
         """
-        if 1 <= level <= 40 and float(level).is_integer():
-            idx = int(level) - 1
-        elif level > 40:
-            idx = 39 + int(round((level - 40) / 0.5))
-        else:
+        if level < 1:
             return None
+        idx = int(round(level - 1))
         if 0 <= idx < len(self.cp_multipliers):
             return self.cp_multipliers[idx]
         return None
@@ -679,6 +681,8 @@ class Pokedex:
             "fastMoves": fast,
             "chargeMoves": charge,
             "maxCpLevel40": self.max_cp(atk, dfn, sta, level=40),
+            "maxCpLevel50": self.max_cp(atk, dfn, sta, level=50),
+            "maxCpLevel51BestBuddy": self.max_cp(atk, dfn, sta, level=51),
         }
         if override:
             return sheet
