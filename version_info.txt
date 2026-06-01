@@ -17,7 +17,7 @@ VSVersionInfo(
         StringTable(
           '040904B0',
           [
-            StringStruct('CompanyName', 'pogodecode'),
+            StringStruct('CompanyName', 'pogodecode contributors'),
             StringStruct('FileDescription', 'Pokémon GO GAME_MASTER decoder & Pokédex viewer'),
             StringStruct('FileVersion', '1.0.0'),
             StringStruct('InternalName', 'pogodecode'),
