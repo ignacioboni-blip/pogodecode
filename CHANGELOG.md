@@ -27,6 +27,11 @@ First public release.
 - **Elite / legacy moves** (Elite TM, Community Day, event exclusives) shown
   separately — these live in distinct fields (49/50) and were previously hidden,
   e.g. Mewtwo's Psystrike / Shadow Ball, Poliwrath's Counter.
+- **Form / Mega signature moves** surfaced — moves a Pokémon only gets through a
+  Mega or form change, stored outside the normal pools (field 77 and the
+  form-change struct 63): Rayquaza/Mega Rayquaza's Dragon Ascent, Crowned
+  Zacian's Behemoth Blade, Crowned Zamazenta's Behemoth Bash, Keldeo's Secret
+  Sword, etc.
 - **Mega / Primal forms** (incl. Mega X / Y) with overridden stats and typing.
 - **Type matchups**: per-Pokémon weaknesses/resistances + full 18×18 chart.
 - **Weather boosts**, **buddy distance**, **power-up cost** tables.

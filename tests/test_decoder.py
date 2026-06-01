@@ -87,6 +87,21 @@ def test_packed_repeated_can_masquerade_as_message():
     assert _packed_move_ids(hinted) == [253, 239, 204]
 
 
+def test_packed_hint_applies_at_a_nested_path():
+    """Form/Mega signature moves live deep (e.g. 63 -> 8 -> 2 -> 1); the hint
+    must match by the full field path, not just the leaf field number."""
+    leaf = field_len(1, varint(469))            # ...->2->1 = Behemoth Blade(469)
+    grp2 = field_len(2, leaf)                    # ...->8->2
+    grp8 = field_len(8, grp2)                    # 63->8
+    msg = field_len(63, grp8)                    # settings->63
+
+    # Leaf field number 1 must NOT be treated as packed elsewhere -- only at
+    # the exact path (63, 8, 2, 1).
+    out = decode_message(msg, packed_paths={(63, 8, 2, 1)})
+    from pogodecode.pokedex import _packed_move_ids
+    assert _packed_move_ids(out["63"]["8"]["2"]["1"]) == [469]
+
+
 def test_double_field_exact():
     assert decode_message(field_double(2, 1.5)) == {"2": 1.5}
 

@@ -51,6 +51,8 @@ PF_QUICK_MOVES = "9"     # packed varint move ids
 PF_CHARGE_MOVES = "10"   # packed varint move ids
 PF_ELITE_QUICK = "49"    # packed varint move ids (elite/legacy fast moves)
 PF_ELITE_CHARGE = "50"   # packed varint move ids (elite/legacy charged moves)
+PF_MEGA_REQUIRED_MOVE = "77"  # packed move ids required for Mega (Rayquaza: Dragon Ascent)
+PF_FORM_CHANGE = "63"    # form-change settings; signature move at 63 -> 8 -> 2 -> 1
 PF_HEIGHT_M = "15"
 PF_WEIGHT_KG = "16"
 PF_EVOLUTION = "26"      # {1: evolves-to id, 3: candy cost, ...}
@@ -667,6 +669,13 @@ class Pokedex:
         elite_charge = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_ELITE_CHARGE))]
         for m in elite_fast + elite_charge:
             m["elite"] = True
+        # Form / Mega signature moves stored outside the normal pools.
+        in_pools = {mid for mid in (
+            _packed_move_ids(s.get(PF_QUICK_MOVES)) + _packed_move_ids(s.get(PF_CHARGE_MOVES))
+            + _packed_move_ids(s.get(PF_ELITE_QUICK)) + _packed_move_ids(s.get(PF_ELITE_CHARGE)))}
+        required = [self._move_brief(mid) for mid in self._required_move_ids(s, in_pools)]
+        for m in required:
+            m["required"] = True
 
         enc = s.get(PF_ENCOUNTER, {})
         capture = enc.get(PF_ENC_CAPTURE) if isinstance(enc, dict) else None
@@ -700,6 +709,7 @@ class Pokedex:
             "chargeMoves": charge,
             "eliteFastMoves": elite_fast,
             "eliteChargeMoves": elite_charge,
+            "requiredMoves": required,
             "maxCpLevel40": self.max_cp(atk, dfn, sta, level=40),
             "maxCpLevel50": self.max_cp(atk, dfn, sta, level=50),
             "maxCpLevel51BestBuddy": self.max_cp(atk, dfn, sta, level=51),
@@ -735,6 +745,30 @@ class Pokedex:
         if not mv:
             return {"id": move_id, "name": f"Move #{move_id}"}
         return mv.to_dict()
+
+    def _required_move_ids(self, s: Dict[str, Any], exclude: set) -> List[int]:
+        """Form / Mega 'signature' move ids that are not in the normal pools.
+
+        Some moves only exist on a Pokemon through a Mega or form change and are
+        stored outside the quick/charge fields: field 77 (Rayquaza's Dragon
+        Ascent) and the form-change settings in field 63, whose own-form move is
+        at 63 -> 8 -> 2 -> 1 (Zacian's Behemoth Blade, Keldeo's Secret Sword...).
+        """
+        ids: List[int] = list(_packed_move_ids(s.get(PF_MEGA_REQUIRED_MOVE)))
+        fc = s.get(PF_FORM_CHANGE)
+        for entry in (fc if isinstance(fc, list) else [fc]):
+            if not isinstance(entry, dict):
+                continue
+            grp = entry.get("8")
+            grp = grp.get("2") if isinstance(grp, dict) else None
+            if isinstance(grp, dict):
+                ids += _packed_move_ids(grp.get("1"))
+        out, seen = [], set()
+        for mid in ids:
+            if mid in self.moves and mid not in exclude and mid not in seen:
+                seen.add(mid)
+                out.append(mid)
+        return out
 
     def all_sheets(self) -> List[Dict[str, Any]]:
         return [self.sheet(k) for k in self._pokemon_keys]
@@ -788,10 +822,10 @@ def diff_pokedex(old: "Pokedex", new: "Pokedex") -> Dict[str, Any]:
         for f in tracked:
             if a.get(f) != b.get(f):
                 diffs[f] = {"old": a.get(f), "new": b.get(f)}
-        a_moves = (a["fastMoves"] + a["chargeMoves"]
-                   + a.get("eliteFastMoves", []) + a.get("eliteChargeMoves", []))
-        b_moves = (b["fastMoves"] + b["chargeMoves"]
-                   + b.get("eliteFastMoves", []) + b.get("eliteChargeMoves", []))
+        a_moves = (a["fastMoves"] + a["chargeMoves"] + a.get("eliteFastMoves", [])
+                   + a.get("eliteChargeMoves", []) + a.get("requiredMoves", []))
+        b_moves = (b["fastMoves"] + b["chargeMoves"] + b.get("eliteFastMoves", [])
+                   + b.get("eliteChargeMoves", []) + b.get("requiredMoves", []))
         am = sorted(m["name"] for m in a_moves)
         bm = sorted(m["name"] for m in b_moves)
         if am != bm:

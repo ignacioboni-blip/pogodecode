@@ -47,6 +47,8 @@ def _format_sheet(s: dict) -> str:
         moves("Elite/legacy fast moves", s["eliteFastMoves"])
     if s.get("eliteChargeMoves"):
         moves("Elite/legacy charge moves", s["eliteChargeMoves"])
+    if s.get("requiredMoves"):
+        moves("Required/signature moves (form/Mega)", s["requiredMoves"])
     for e in s.get("evolution", []) or []:
         target = e.get("evolvesTo") or e.get("evolvesToId")
         lines.append(f"  Evolve:   → {target} ({e.get('candyCost','?')} candy)")

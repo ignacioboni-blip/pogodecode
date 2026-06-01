@@ -354,9 +354,10 @@ class ViewerApp:
         lines.append(("", None))
         for title, key in (("Fast moves", "fastMoves"), ("Charge moves", "chargeMoves"),
                            ("Elite/legacy fast moves", "eliteFastMoves"),
-                           ("Elite/legacy charge moves", "eliteChargeMoves")):
-            if not s.get(key) and key.startswith("elite"):
-                continue  # only show elite sections when present
+                           ("Elite/legacy charge moves", "eliteChargeMoves"),
+                           ("Required/signature moves (form/Mega)", "requiredMoves")):
+            if not s.get(key) and (key.startswith("elite") or key == "requiredMoves"):
+                continue  # only show these sections when present
             lines.append((title, "h2"))
             if not s.get(key):
                 lines.append(("  —", None))

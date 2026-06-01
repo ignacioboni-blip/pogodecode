@@ -283,3 +283,22 @@ def test_real_file_movepools_and_elite_moves():
     assert v["pokemonWithoutFastMove"]["count"] <= 3
     assert v["unresolvedMoveIds"]["count"] == 0
     assert v["pokemonWithEliteChargeMove"] > 100
+
+
+@pytest.mark.skipif(_real() is None, reason="no real GAME_MASTER file available")
+def test_real_file_form_and_mega_required_moves():
+    from pogodecode.pokedex import load_pokedex
+    dex = load_pokedex(_real())
+
+    def required(tid):
+        return {m["name"] for m in dex.sheet(tid)["requiredMoves"]}
+
+    # Mega-required move (field 77) on Rayquaza and its Mega temp-evo sheet.
+    assert "Dragon Ascent" in required("V0384_POKEMON_RAYQUAZA")
+    assert "Dragon Ascent" in required("V0384_POKEMON_RAYQUAZA::TEMPEVO::1")
+    # Form-change signature moves (field 63).
+    assert "Behemoth Blade" in required("V0888_POKEMON_ZACIAN_CROWNED_SWORD")
+    assert "Behemoth Bash" in required("V0889_POKEMON_ZAMAZENTA_CROWNED_SHIELD")
+    assert "Secret Sword" in required("V0647_POKEMON_KELDEO_RESOLUTE")
+    # A normal Pokemon has no signature-move section (no false positives).
+    assert dex.sheet("V0006_POKEMON_CHARIZARD")["requiredMoves"] == []

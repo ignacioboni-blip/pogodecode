@@ -45,8 +45,13 @@ _RE_POKEMON_TID = re.compile(r"^V\d+_POKEMON_")
 # schema-free decoder can mis-read them; hint the paths so the raw bytes survive
 # for the Pokedex layer to unpack. Path is relative to the Template message:
 #   Template.data(2) -> PokemonSettings(2) -> quick(9)/charge(10)/elite(49,50)
+# Field 77 is Rayquaza's Mega-required move (Dragon Ascent). Field 63 is the
+# form-change settings; its move ids live at 63 -> 8 -> 2 -> {1,2} (e.g. Zacian
+# Behemoth Blade, Necrozma Sunsteel Strike).
 _POKEMON_PACKED_PATHS = {
     (_F_DATA, 2, 9), (_F_DATA, 2, 10), (_F_DATA, 2, 49), (_F_DATA, 2, 50),
+    (_F_DATA, 2, 77),
+    (_F_DATA, 2, 63, 8, 2, 1), (_F_DATA, 2, 63, 8, 2, 2),
 }
 
 
