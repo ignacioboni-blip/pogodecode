@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from . import protobuf_decoder as pb
@@ -35,6 +36,18 @@ __all__ = ["decode_game_master", "DecodeResult"]
 _F_TEMPLATES = 2      # GameMaster.templates
 _F_TEMPLATE_ID = 1    # Template.template_id / Data.template_id
 _F_DATA = 2           # Template.data
+
+# A Pokemon template id, e.g. "V0150_POKEMON_MEWTWO".
+_RE_POKEMON_TID = re.compile(r"^V\d+_POKEMON_")
+
+# Within a Pokemon template, the movepool fields are *packed repeated varints*
+# (move ids). On the wire that is indistinguishable from a sub-message, so the
+# schema-free decoder can mis-read them; hint the paths so the raw bytes survive
+# for the Pokedex layer to unpack. Path is relative to the Template message:
+#   Template.data(2) -> PokemonSettings(2) -> quick(9)/charge(10)/elite(49,50)
+_POKEMON_PACKED_PATHS = {
+    (_F_DATA, 2, 9), (_F_DATA, 2, 10), (_F_DATA, 2, 49), (_F_DATA, 2, 50),
+}
 
 
 class DecodeResult(dict):
@@ -75,11 +88,16 @@ def _parse_template(chunk: bytes) -> Optional[Dict[str, Any]]:
     """Parse one Template entry into ``{templateId, data}``."""
     msg = pb.decode_message(chunk)
     template_id = msg.get(str(_F_TEMPLATE_ID))
-    raw_data = msg.get(str(_F_DATA))
 
     if not isinstance(template_id, str):
         # Not the shape we expect; skip rather than crash the whole file.
         return None
+
+    # Pokemon movepools are packed varints that can mis-decode as sub-messages;
+    # re-decode this template with the schema hint so they survive as raw bytes.
+    if _RE_POKEMON_TID.match(template_id):
+        msg = pb.decode_message(chunk, packed_paths=_POKEMON_PACKED_PATHS)
+    raw_data = msg.get(str(_F_DATA))
 
     data: Any = {}
     if isinstance(raw_data, dict):

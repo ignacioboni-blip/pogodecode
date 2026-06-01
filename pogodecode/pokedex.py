@@ -49,6 +49,8 @@ PF_STATS = "8"           # {1: stamina, 2: attack, 3: defense}
 PF_STAT_STAMINA, PF_STAT_ATTACK, PF_STAT_DEFENSE = "1", "2", "3"
 PF_QUICK_MOVES = "9"     # packed varint move ids
 PF_CHARGE_MOVES = "10"   # packed varint move ids
+PF_ELITE_QUICK = "49"    # packed varint move ids (elite/legacy fast moves)
+PF_ELITE_CHARGE = "50"   # packed varint move ids (elite/legacy charged moves)
 PF_HEIGHT_M = "15"
 PF_WEIGHT_KG = "16"
 PF_EVOLUTION = "26"      # {1: evolves-to id, 3: candy cost, ...}
@@ -483,6 +485,7 @@ class Pokedex:
         no_fast, no_charge, stat_outliers, bad_types = [], [], [], []
         unresolved: Dict[int, int] = {}
         zero_duration_moves: List[str] = []
+        with_elite_fast, with_elite_charge = 0, 0
 
         for key in self._pokemon_keys:
             if TEMPEVO_SEP in key:
@@ -490,11 +493,18 @@ class Pokedex:
             s = self._by_id[key][PF_SETTINGS]
             fast_ids = _packed_move_ids(s.get(PF_QUICK_MOVES))
             charge_ids = _packed_move_ids(s.get(PF_CHARGE_MOVES))
-            if not fast_ids:
+            elite_fast_ids = _packed_move_ids(s.get(PF_ELITE_QUICK))
+            elite_charge_ids = _packed_move_ids(s.get(PF_ELITE_CHARGE))
+            with_elite_fast += bool(elite_fast_ids)
+            with_elite_charge += bool(elite_charge_ids)
+            # A Pokemon counts as having a move if it has a regular OR an elite one
+            # (some only learn a fast/charged move via Elite TM), so elite-only
+            # movepools are not falsely flagged as "missing".
+            if not fast_ids and not elite_fast_ids:
                 no_fast.append(key)
-            if not charge_ids:
+            if not charge_ids and not elite_charge_ids:
                 no_charge.append(key)
-            for mid in fast_ids + charge_ids:
+            for mid in fast_ids + charge_ids + elite_fast_ids + elite_charge_ids:
                 if mid not in self.moves:
                     unresolved[mid] = unresolved.get(mid, 0) + 1
             st = s.get(PF_STATS, {})
@@ -521,6 +531,8 @@ class Pokedex:
             "movesChecked": len(self.moves),
             "pokemonWithoutFastMove": sample(no_fast),
             "pokemonWithoutChargeMove": sample(no_charge),
+            "pokemonWithEliteFastMove": with_elite_fast,
+            "pokemonWithEliteChargeMove": with_elite_charge,
             "unresolvedMoveIds": {"count": len(unresolved),
                                   "sample": dict(list(unresolved.items())[:15])},
             "statOutliers": sample(stat_outliers),
@@ -649,6 +661,12 @@ class Pokedex:
         # Mega forms use the base species movepool.
         fast = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_QUICK_MOVES))]
         charge = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_CHARGE_MOVES))]
+        # Elite / legacy moves (Elite TM, Community Day, event exclusives) live in
+        # separate fields and are easy to miss -- surface them explicitly.
+        elite_fast = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_ELITE_QUICK))]
+        elite_charge = [self._move_brief(mid) for mid in _packed_move_ids(s.get(PF_ELITE_CHARGE))]
+        for m in elite_fast + elite_charge:
+            m["elite"] = True
 
         enc = s.get(PF_ENCOUNTER, {})
         capture = enc.get(PF_ENC_CAPTURE) if isinstance(enc, dict) else None
@@ -680,6 +698,8 @@ class Pokedex:
             "baseCaptureRate": capture,
             "fastMoves": fast,
             "chargeMoves": charge,
+            "eliteFastMoves": elite_fast,
+            "eliteChargeMoves": elite_charge,
             "maxCpLevel40": self.max_cp(atk, dfn, sta, level=40),
             "maxCpLevel50": self.max_cp(atk, dfn, sta, level=50),
             "maxCpLevel51BestBuddy": self.max_cp(atk, dfn, sta, level=51),
@@ -768,8 +788,12 @@ def diff_pokedex(old: "Pokedex", new: "Pokedex") -> Dict[str, Any]:
         for f in tracked:
             if a.get(f) != b.get(f):
                 diffs[f] = {"old": a.get(f), "new": b.get(f)}
-        am = sorted(m["name"] for m in a["fastMoves"] + a["chargeMoves"])
-        bm = sorted(m["name"] for m in b["fastMoves"] + b["chargeMoves"])
+        a_moves = (a["fastMoves"] + a["chargeMoves"]
+                   + a.get("eliteFastMoves", []) + a.get("eliteChargeMoves", []))
+        b_moves = (b["fastMoves"] + b["chargeMoves"]
+                   + b.get("eliteFastMoves", []) + b.get("eliteChargeMoves", []))
+        am = sorted(m["name"] for m in a_moves)
+        bm = sorted(m["name"] for m in b_moves)
         if am != bm:
             diffs["moves"] = {"added": sorted(set(bm) - set(am)),
                               "removed": sorted(set(am) - set(bm))}

@@ -255,3 +255,31 @@ def test_real_file_reference_values():
     x = dex.sheet("V0006_POKEMON_CHARIZARD::TEMPEVO::2")
     assert x["types"] == ["Fire", "Dragon"]
     assert x["baseStats"] == {"attack": 273, "defense": 213, "stamina": 186}
+
+
+@pytest.mark.skipif(_real() is None, reason="no real GAME_MASTER file available")
+def test_real_file_movepools_and_elite_moves():
+    from pogodecode.pokedex import load_pokedex
+    dex = load_pokedex(_real())
+
+    # Regression: Dragonite's packed fast-move list used to mis-decode as a
+    # sub-message and vanish. It must contain its real fast moves.
+    drag = {m["name"] for m in dex.sheet("V0149_POKEMON_DRAGONITE")["fastMoves"]}
+    assert {"Dragon Breath", "Dragon Tail", "Steel Wing"} <= drag
+
+    # Elite / legacy moves live in separate fields and must be surfaced.
+    pol = dex.sheet("V0062_POKEMON_POLIWRATH")
+    assert "Counter" in {m["name"] for m in pol["eliteFastMoves"]}
+    mew = dex.sheet("V0150_POKEMON_MEWTWO")
+    elite_charge = {m["name"] for m in mew["eliteChargeMoves"]}
+    assert {"Psystrike", "Shadow Ball"} <= elite_charge
+    # Mewtwo genuinely does not learn Counter in the data (neither pool).
+    all_mew = {m["name"] for m in mew["fastMoves"] + mew["eliteFastMoves"]}
+    assert "Counter" not in all_mew
+
+    # With movepools decoded correctly, almost no Pokemon should look move-less
+    # (Smeargle is the only legitimate case -- it copies moves via Sketch).
+    v = dex.validate()
+    assert v["pokemonWithoutFastMove"]["count"] <= 3
+    assert v["unresolvedMoveIds"]["count"] == 0
+    assert v["pokemonWithEliteChargeMove"] > 100

@@ -12,12 +12,21 @@ First public release.
   `GAME_MASTER` file — no `.proto` schema needed, so it survives client updates.
 - Tkinter GUI (`PoGoGameMasterDecoder`) and CLI to export clean JSON
   (`templatesById`, `templates`, `categories`), pretty or minified.
+- **Packed-field correctness:** a packed repeated scalar (e.g. a Pokémon's
+  move-id list) is byte-for-byte indistinguishable from a sub-message on the
+  wire, so the schema-free decoder could silently mis-read it and drop the data.
+  The decoder now accepts per-path hints; the GAME_MASTER layer applies them to
+  Pokémon movepool fields (9/10/49/50), fixing ~200 Pokémon (e.g. Dragonite)
+  whose fast moves previously decoded as a bogus nested message.
 
 ### Pokédex viewer (verification tool)
 - Readable per-Pokémon sheets: typing, base stats, height/weight, base catch
   rate, fast/charge moves (power/energy/duration/DPS/EPS), evolution cost.
 - **Max CP at Level 40, 50, and 51 (best buddy)** — using correct integer-level
   CP-multiplier indexing (`index = level - 1`); avoids the common ~6% L50 error.
+- **Elite / legacy moves** (Elite TM, Community Day, event exclusives) shown
+  separately — these live in distinct fields (49/50) and were previously hidden,
+  e.g. Mewtwo's Psystrike / Shadow Ball, Poliwrath's Counter.
 - **Mega / Primal forms** (incl. Mega X / Y) with overridden stats and typing.
 - **Type matchups**: per-Pokémon weaknesses/resistances + full 18×18 chart.
 - **Weather boosts**, **buddy distance**, **power-up cost** tables.

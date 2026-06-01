@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import base64
 import struct
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 __all__ = ["ProtobufDecodeError", "decode_message", "try_decode_message", "BYTES_KEY"]
 
@@ -90,15 +90,27 @@ def _looks_like_text(raw: bytes) -> bool:
 Decoded = Union[int, float, str, Dict[str, Any], List[Any]]
 
 
-def _decode_length_delimited(raw: bytes) -> Decoded:
+def _as_bytes(raw: bytes) -> Dict[str, str]:
+    return {BYTES_KEY: base64.b64encode(raw).decode("ascii")}
+
+
+def _decode_length_delimited(
+    raw: bytes,
+    packed_paths: "Optional[Set[Tuple[int, ...]]]" = None,
+    path: "Tuple[int, ...]" = (),
+) -> Decoded:
     """Interpret a wire-type-2 payload as message, string, or raw bytes.
 
     Order of preference:
       1. A nested message, if the bytes parse cleanly *and* consume fully.
       2. A UTF-8 string, if the bytes look like readable text.
       3. Base64-encoded bytes, as a last resort.
+
+    ``packed_paths`` (handled by the caller) lists field paths that are known to
+    be *packed repeated scalars* rather than sub-messages -- a distinction the
+    wire format cannot otherwise make.
     """
-    nested = try_decode_message(raw)
+    nested = try_decode_message(raw, packed_paths, path)
     if nested is not None and not _looks_like_text(raw):
         return nested
     if _looks_like_text(raw):
@@ -107,7 +119,7 @@ def _decode_length_delimited(raw: bytes) -> Decoded:
         return raw.decode("utf-8")
     if nested is not None:
         return nested
-    return {BYTES_KEY: base64.b64encode(raw).decode("ascii")}
+    return _as_bytes(raw)
 
 
 def _add_field(out: Dict[str, Any], field_number: int, value: Any) -> None:
@@ -123,10 +135,20 @@ def _add_field(out: Dict[str, Any], field_number: int, value: Any) -> None:
         out[key] = value
 
 
-def decode_message(buf: bytes) -> Dict[str, Any]:
+def decode_message(
+    buf: bytes,
+    packed_paths: "Optional[Set[Tuple[int, ...]]]" = None,
+    _path: "Tuple[int, ...]" = (),
+) -> Dict[str, Any]:
     """Decode a protobuf message buffer into a ``{field_number: value}`` dict.
 
     Raises ``ProtobufDecodeError`` on malformed input.
+
+    ``packed_paths`` is an optional set of field paths (tuples of field numbers
+    from this message's root) that are *packed repeated scalars*. The wire
+    format makes them indistinguishable from sub-messages, so without this hint
+    such a field can be silently mis-decoded as a nested message. Listed paths
+    are kept as raw ``{__bytes__}`` for the caller to unpack.
     """
     out: Dict[str, Any] = {}
     pos = 0
@@ -153,7 +175,13 @@ def decode_message(buf: bytes) -> Dict[str, Any]:
                 raise ProtobufDecodeError("length-delimited field overruns buffer")
             raw = buf[pos:pos + length]
             pos += length
-            _add_field(out, field_number, _decode_length_delimited(raw))
+            field_path = _path + (field_number,)
+            if packed_paths and field_path in packed_paths:
+                # Known packed repeated scalar: keep raw, do not recurse.
+                _add_field(out, field_number, _as_bytes(raw))
+            else:
+                _add_field(out, field_number,
+                           _decode_length_delimited(raw, packed_paths, field_path))
         elif wire_type == 5:  # I32 -> float
             if pos + 4 > n:
                 raise ProtobufDecodeError("truncated 32-bit value")
@@ -169,7 +197,11 @@ def decode_message(buf: bytes) -> Dict[str, Any]:
     return out
 
 
-def try_decode_message(buf: bytes) -> Union[Dict[str, Any], None]:
+def try_decode_message(
+    buf: bytes,
+    packed_paths: "Optional[Set[Tuple[int, ...]]]" = None,
+    _path: "Tuple[int, ...]" = (),
+) -> Union[Dict[str, Any], None]:
     """Decode ``buf`` as a message, returning ``None`` if it is not valid.
 
     An empty buffer is not a useful nested message, so it returns ``None``
@@ -178,6 +210,6 @@ def try_decode_message(buf: bytes) -> Union[Dict[str, Any], None]:
     if not buf:
         return None
     try:
-        return decode_message(buf)
+        return decode_message(buf, packed_paths, _path)
     except ProtobufDecodeError:
         return None

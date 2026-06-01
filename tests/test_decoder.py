@@ -69,6 +69,24 @@ def test_string_field():
     assert decode_message(field_string(3, "BULBASAUR")) == {"3": "BULBASAUR"}
 
 
+def test_packed_repeated_can_masquerade_as_message():
+    """A packed varint array is wire-compatible with a sub-message; without a
+    schema hint the decoder may mis-read it (this is the Dragonite movepool bug).
+    These exact bytes [253, 239, 204] parse cleanly as a bogus {31: float}."""
+    packed = varint(253) + varint(239) + varint(204)
+    outer = field_len(9, packed)
+
+    # Default (no hint): mis-decoded as a nested message, move ids lost.
+    decoded = decode_message(outer)["9"]
+    assert isinstance(decoded, dict) and BYTES_KEY not in decoded
+
+    # With the hint: kept as raw bytes, so the real move ids survive.
+    from pogodecode.pokedex import _packed_move_ids
+    hinted = decode_message(outer, packed_paths={(9,)})["9"]
+    assert BYTES_KEY in hinted
+    assert _packed_move_ids(hinted) == [253, 239, 204]
+
+
 def test_double_field_exact():
     assert decode_message(field_double(2, 1.5)) == {"2": 1.5}
 

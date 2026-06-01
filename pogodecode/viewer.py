@@ -352,11 +352,15 @@ class ViewerApp:
         if s.get("baseCaptureRate") is not None:
             lines.append((f"  Base capture rate: {s['baseCaptureRate']*100:.1f}%", None))
         lines.append(("", None))
-        for title, key in (("Fast moves", "fastMoves"), ("Charge moves", "chargeMoves")):
+        for title, key in (("Fast moves", "fastMoves"), ("Charge moves", "chargeMoves"),
+                           ("Elite/legacy fast moves", "eliteFastMoves"),
+                           ("Elite/legacy charge moves", "eliteChargeMoves")):
+            if not s.get(key) and key.startswith("elite"):
+                continue  # only show elite sections when present
             lines.append((title, "h2"))
-            if not s[key]:
+            if not s.get(key):
                 lines.append(("  —", None))
-            for m in s[key]:
+            for m in s.get(key, []):
                 extra = (f"  power {m['power']:g}, energy {m['energy']}, "
                          f"{m['durationMs']/1000:g}s, DPS {m.get('dps','?')}") if "power" in m else ""
                 lines.append((f"  {m['name']} ({m.get('type','?')}){extra}", None))
