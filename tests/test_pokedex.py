@@ -9,8 +9,19 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pogodecode.pokedex import (  # noqa: E402
-    Pokedex, _to_signed, _packed_move_ids, diff_to_markdown,
+    Pokedex, Move, _to_signed, _packed_move_ids, diff_to_markdown,
 )
+
+
+def test_sentinel_power_moves_flagged_as_placeholder():
+    """Niantic ships OHKO moves (Horn Drill 9000, Fissure 9001) with a sentinel
+    power; they must be flagged, not shown as real moves. No fixture needed."""
+    horn = Move(328, "V0328_MOVE_HORN_DRILL"); horn.power = 9000.0
+    normal = Move(103, "V0103_MOVE_FIRE_BLAST"); normal.power = 140.0
+    assert horn.placeholder is True
+    assert horn.to_dict()["placeholder"] is True
+    assert normal.placeholder is False
+    assert normal.to_dict()["placeholder"] is False
 
 
 def test_diff_to_markdown_renders_changes():
@@ -324,6 +335,14 @@ def test_real_file_form_and_mega_required_moves():
     assert "Secret Sword" in required("V0647_POKEMON_KELDEO_RESOLUTE")
     # A normal Pokemon has no signature-move section (no false positives).
     assert dex.sheet("V0006_POKEMON_CHARIZARD")["requiredMoves"] == []
+
+    # Unreleased OHKO moves are faithfully decoded but flagged, and reported.
+    by_name = {m["name"]: m for m in dex.all_moves()}
+    assert by_name["Horn Drill"]["placeholder"] is True
+    assert by_name["Fissure"]["placeholder"] is True
+    assert by_name["Fire Blast"]["placeholder"] is False
+    ph = {n for n in dex.validate()["placeholderMoves"]["sample"]}
+    assert {"Horn Drill", "Fissure"} <= ph
 
 
 @pytest.mark.skipif(_real() is None, reason="no real GAME_MASTER file available")

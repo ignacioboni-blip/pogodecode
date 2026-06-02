@@ -194,6 +194,11 @@ def _prettify(token: str) -> str:
 
 # --- main object -----------------------------------------------------------
 
+# Real move power tops out well under 1000; Niantic uses ~9000 as a sentinel for
+# unreleased one-hit-KO moves (Horn Drill 9000, Fissure 9001).
+SENTINEL_POWER = 1000.0
+
+
 class Move:
     __slots__ = ("id", "name", "raw_name", "type", "type_name", "power",
                  "energy", "duration_ms", "is_fast", "pvp_power", "pvp_energy")
@@ -221,6 +226,13 @@ class Move:
         """Energy per second (PvE); negative for charge moves (energy spent)."""
         return round(self.energy / (self.duration_ms / 1000.0), 2) if self.duration_ms else 0.0
 
+    @property
+    def placeholder(self) -> bool:
+        """Unreleased/placeholder move. Niantic ships one-hit-KO moves (Horn
+        Drill 9000, Fissure 9001) with a sentinel power and assigns them to no
+        Pokémon; flag them so they don't pollute a verifier or a live site."""
+        return self.power >= SENTINEL_POWER
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id, "name": self.name, "type": self.type_name,
@@ -229,6 +241,7 @@ class Move:
             "durationMs": self.duration_ms,
             "dps": self.dps, "eps": self.eps,
             "pvpPower": self.pvp_power, "pvpEnergy": self.pvp_energy,
+            "placeholder": self.placeholder,
         }
 
 
@@ -520,9 +533,12 @@ class Pokedex:
                     bad_types.append(key)
                     break
 
+        placeholder_moves = []
         for mv in self.moves.values():
             if mv.duration_ms <= 0:
                 zero_duration_moves.append(mv.name)
+            if mv.placeholder:
+                placeholder_moves.append(mv.name)
 
         def sample(seq, n=15):
             seq = list(seq)
@@ -541,6 +557,7 @@ class Pokedex:
             "statOutliers": sample(stat_outliers),
             "invalidTypes": sample(bad_types),
             "movesWithZeroDuration": sample(zero_duration_moves),
+            "placeholderMoves": sample(placeholder_moves),
             "typeChartAttackers": len(self.type_chart),
             "cpMultiplierLevels": len(self.cp_multipliers),
         }

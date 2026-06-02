@@ -423,8 +423,9 @@ class ViewerApp:
         for m in self.dex.all_moves():
             if term and term not in m["name"].lower() and term not in m["type"].lower():
                 continue
+            name = m["name"] + (" (unreleased)" if m.get("placeholder") else "")
             self.moves_tv.insert("", "end", values=(
-                m["name"], m["type"], m["category"], f"{m['power']:g}",
+                name, m["type"], m["category"], f"{m['power']:g}",
                 m["energy"], f"{m['durationMs']/1000:g}", m["dps"], m["eps"]))
 
     def _render_type_chart(self) -> None:

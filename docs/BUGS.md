@@ -66,6 +66,19 @@ again as packed varints subject to the B1 ambiguity.
 section, filtered to moves not already in the fast/charge/elite pools (so normal
 Pokémon show nothing).
 
+### <a id="b5"></a>B5 — Unreleased OHKO moves with sentinel power (9000 / 9001)
+
+**Symptom.** Horn Drill and Fissure reported absurd power (**9000** / **9001**).
+
+**Cause.** Not a decode bug — the GAME_MASTER *literally* stores those values.
+Niantic ships the one-hit-KO moves (Horn Drill, Fissure) with a sentinel power
+and assigns them to **no** Pokémon; they're unreleased placeholders.
+
+**Fix.** The value is decoded faithfully, but moves with power ≥ 1000 are now
+flagged `"placeholder": true`, annotated `(unreleased)` in the move lists, and
+counted under `placeholderMoves` in `validate()` — so they don't pollute a
+verifier or a live site. Filter them with `m["placeholder"]`.
+
 ## Known limitations (by design)
 
 These are **not** bugs — the data simply isn't in `GAME_MASTER`, or is inherent

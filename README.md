@@ -239,6 +239,7 @@ This tool is only trustworthy if it's honest about where it was wrong. Summary
 | B2 | **Level-50 CP** off by ~6% — wrong CP-multiplier index | ✅ Fixed (integer-level indexing, `index = level − 1`) |
 | B3 | **Elite / legacy moves** (e.g. Mewtwo Shadow Ball, Poliwrath Counter) not shown | ✅ Fixed (fields 49/50 surfaced) |
 | B4 | **Form / Mega signature moves** (Dragon Ascent, Behemoth Blade/Bash, Secret Sword) not shown | ✅ Fixed (fields 77 & 63 surfaced) |
+| B5 | **Horn Drill / Fissure** showed power 9000/9001 — Niantic's sentinel for unreleased OHKO moves (faithful data, not a decode bug) | ✅ Handled (flagged `placeholder`, marked `(unreleased)`, counted in `validate()`) |
 
 ## Use it in your own project
 

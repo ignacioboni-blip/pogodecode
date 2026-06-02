@@ -36,7 +36,10 @@ First public release.
 - **Type matchups**: per-Pokémon weaknesses/resistances + full 18×18 chart.
 - **Weather boosts**, **buddy distance**, **power-up cost** tables.
 - **Items**, **PvP leagues** (CP caps), **friendship** bonuses.
-- **Validation** report: no-move Pokémon, unresolved move IDs, stat/type outliers.
+- **Validation** report: no-move Pokémon, unresolved move IDs, stat/type outliers,
+  and **unreleased placeholder moves** (Horn Drill 9000 / Fissure 9001 — Niantic's
+  sentinel power for OHKO moves assigned to no Pokémon; decoded faithfully but
+  flagged `placeholder` and marked `(unreleased)` so they don't pollute output).
 - **Diff** two GAME_MASTER files to see exactly what changed between updates.
 - Filter by type, sort by stat/CP, compare Pokémon side-by-side, and a generic
   search over every decoded template.

@@ -130,9 +130,10 @@ def main(argv=None) -> int:
         return 0
     if args.moves:
         for m in dex.all_moves():
+            tag = "  (unreleased placeholder)" if m.get("placeholder") else ""
             print(f"{m['name']:<28} {m['type']:<9} {m['category']:<6} "
                   f"pow {m['power']:<5g} eng {m['energy']:<5} "
-                  f"{m['durationMs']/1000:>4g}s  DPS {m['dps']:<6} EPS {m['eps']}")
+                  f"{m['durationMs']/1000:>4g}s  DPS {m['dps']:<6} EPS {m['eps']}{tag}")
         return 0
 
     if args.export:
