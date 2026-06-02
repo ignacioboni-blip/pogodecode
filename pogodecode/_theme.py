@@ -1,9 +1,14 @@
-"""Optional GUI theming: embed the bundled fonts and apply a modern look.
+"""Self-contained GUI theming + bundled-font support for the Tkinter apps.
 
-Everything here is best-effort and wrapped in try/except -- if a font cannot be
-registered or a style cannot be applied, the app silently falls back to Tk's
-defaults rather than failing. Nothing in this module is required for the CLI or
-the library (it is only imported by the Tkinter apps).
+This is a **pure-ttk** theme: it styles widgets only, and never touches the OS
+window manager (no DWM/acrylic/native hacks), so it renders the same on Windows,
+macOS and Linux with no platform surprises. A light and a dark variant are
+provided; both are fully opaque and high-contrast.
+
+Everything is best-effort and wrapped in try/except -- if a font can't be
+registered or a style can't be applied, the app falls back to Tk's defaults
+rather than breaking. This module is imported only by the GUIs; the CLI and
+library never import it (so they stay headless and dependency-free).
 """
 
 import glob
@@ -15,25 +20,28 @@ import sys
 UI_FONT = "Google Sans Flex"     # default UI font
 DISPLAY_FONT = "Quicksand"       # used for headings / the app title
 
-# Windows-only backdrop applied via pywinstyles. "acrylic" gives the translucent,
-# blurred system backdrop with a dark title bar (Windows 10/11). Other options:
-# "mica", "aero", "transparent", "dark", "light". Acrylic implies a dark chrome.
-WINDOW_STYLE = "acrylic"
-
-# Light and dark palettes. Keys are referenced by apply_theme().
+# Two hand-tuned, fully-opaque palettes.
 PALETTES = {
     "light": {
-        "bg": "#f4f5f7", "surface": "#ffffff", "field": "#ffffff",
-        "text": "#1f2329", "muted": "#6b7280", "border": "#d6d9de",
-        "accent": "#2d6ed2", "accent_text": "#ffffff", "sel": "#d4e4fb",
+        "bg": "#eef0f3", "surface": "#ffffff", "field": "#ffffff",
+        "text": "#1f2430", "muted": "#5b6470", "border": "#cdd2da",
+        "accent": "#2563eb", "accent_text": "#ffffff",
+        "sel": "#2563eb", "sel_text": "#ffffff", "hover": "#e3e8f0",
+        "heading": "#e7eaf0",
     },
     "dark": {
-        "bg": "#1e1f22", "surface": "#26282c", "field": "#2d2f34",
-        "text": "#e6e6e6", "muted": "#9aa0a6", "border": "#3a3d42",
-        "accent": "#4a90e2", "accent_text": "#ffffff", "sel": "#33475f",
+        "bg": "#1d1f24", "surface": "#272a31", "field": "#2e323a",
+        "text": "#e6e8ec", "muted": "#9aa1ad", "border": "#3a3f48",
+        "accent": "#4f8cff", "accent_text": "#0b1020",
+        "sel": "#3a5bd9", "sel_text": "#ffffff", "hover": "#31353e",
+        "heading": "#22252b",
     },
 }
 
+
+# ---------------------------------------------------------------------------
+# Font registration (so the bundled TTFs are usable by family name)
+# ---------------------------------------------------------------------------
 
 def _font_dir():
     """Locate the bundled fonts whether running from source or a PyInstaller build."""
@@ -104,12 +112,16 @@ def _family_available(root, family):
         return False
 
 
-def apply_theme(root, dark=False, font=None):
-    """Register fonts and apply the theme to ``root``. Best-effort; never raises.
+# ---------------------------------------------------------------------------
+# The theme
+# ---------------------------------------------------------------------------
 
-    ``font`` optionally overrides the UI font family with any font installed on
-    the machine (see :func:`list_font_families`); it falls back to the bundled
-    font, then to the Tk default. Returns the resolved family.
+def apply_theme(root, dark=False, font=None):
+    """Apply the theme + fonts to ``root``. Best-effort; never raises.
+
+    ``font`` optionally overrides the UI font with any installed family (see
+    :func:`list_font_families`); falls back to the bundled font, then the Tk
+    default. Returns the resolved family.
     """
     from tkinter import font as tkfont
     from tkinter import ttk
@@ -126,9 +138,8 @@ def apply_theme(root, dark=False, font=None):
             ui = candidate
             break
     display = DISPLAY_FONT if _family_available(root, DISPLAY_FONT) else ui
-    pal = PALETTES["dark" if dark else "light"]
+    p = PALETTES["dark" if dark else "light"]
 
-    # Make every standard named font use the bundled UI font.
     if ui:
         for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont",
                      "TkTooltipFont", "TkIconFont", "TkSmallCaptionFont", "TkCaptionFont"):
@@ -141,151 +152,154 @@ def apply_theme(root, dark=False, font=None):
         except Exception:
             pass
 
-    # ttk palette via the themeable 'clam' base.
     try:
-        style = ttk.Style(root)
+        st = ttk.Style(root)
         try:
-            style.theme_use("clam")
+            st.theme_use("clam")   # the only fully re-stylable built-in theme
         except Exception:
             pass
-        style.configure(".", background=pal["bg"], foreground=pal["text"],
-                        fieldbackground=pal["field"], bordercolor=pal["border"])
-        style.configure("TFrame", background=pal["bg"])
-        style.configure("TLabelframe", background=pal["bg"], bordercolor=pal["border"])
-        style.configure("TLabelframe.Label", background=pal["bg"], foreground=pal["muted"])
-        style.configure("TLabel", background=pal["bg"], foreground=pal["text"])
-        style.configure("TButton", background=pal["surface"], foreground=pal["text"],
-                        bordercolor=pal["border"], focuscolor=pal["accent"], padding=6)
-        # clam overrides configure() with per-state colors, so the base look must
-        # be pinned via the ("!disabled", ...) state too -- otherwise dark mode
-        # leaves entries/buttons light.
-        style.map("TButton",
-                  background=[("pressed", pal["accent"]), ("active", pal["sel"]),
-                              ("!disabled", pal["surface"])],
-                  foreground=[("pressed", pal["accent_text"]), ("!disabled", pal["text"])])
-        style.configure("Accent.TButton", background=pal["accent"],
-                        foreground=pal["accent_text"], padding=6)
-        style.map("Accent.TButton",
-                  background=[("active", pal["accent"]), ("!disabled", pal["accent"])],
-                  foreground=[("!disabled", pal["accent_text"])])
-        style.configure("TEntry", fieldbackground=pal["field"], foreground=pal["text"],
-                        bordercolor=pal["border"])
-        style.map("TEntry",
-                  fieldbackground=[("readonly", pal["field"]), ("disabled", pal["field"]),
-                                   ("!disabled", pal["field"])],
-                  foreground=[("!disabled", pal["text"])])
-        style.configure("TCombobox", fieldbackground=pal["field"], foreground=pal["text"])
-        style.map("TCombobox",
-                  fieldbackground=[("readonly", pal["field"]), ("!disabled", pal["field"])],
-                  foreground=[("!disabled", pal["text"])])
-        root.option_add("*TCombobox*Listbox.background", pal["surface"])
-        root.option_add("*TCombobox*Listbox.foreground", pal["text"])
-        style.configure("TNotebook", background=pal["bg"], bordercolor=pal["border"])
-        style.configure("TNotebook.Tab", background=pal["bg"], foreground=pal["muted"],
-                        padding=(10, 5))
-        style.map("TNotebook.Tab",
-                  background=[("selected", pal["surface"])],
-                  foreground=[("selected", pal["accent"])])
-        style.configure("Treeview", background=pal["surface"], fieldbackground=pal["surface"],
-                        foreground=pal["text"], bordercolor=pal["border"], rowheight=22)
-        style.configure("Treeview.Heading", background=pal["bg"], foreground=pal["muted"])
-        style.map("Treeview", background=[("selected", pal["accent"])],
-                  foreground=[("selected", pal["accent_text"])])
-        style.configure("TCheckbutton", background=pal["bg"], foreground=pal["text"])
-        style.configure("TScrollbar", background=pal["bg"], troughcolor=pal["bg"],
-                        bordercolor=pal["border"])
-        style.configure("Status.TLabel", background=pal["border"], foreground=pal["text"])
-        style.configure("Title.TLabel", background=pal["bg"], foreground=pal["text"],
-                        font=(display or ui or "TkHeadingFont", 16, "bold"))
+
+        st.configure(".", background=p["bg"], foreground=p["text"],
+                     fieldbackground=p["field"], bordercolor=p["border"],
+                     lightcolor=p["bg"], darkcolor=p["bg"], focuscolor=p["accent"],
+                     troughcolor=p["heading"], insertcolor=p["text"])
+
+        st.configure("TFrame", background=p["bg"])
+        st.configure("TLabel", background=p["bg"], foreground=p["text"])
+        st.configure("Muted.TLabel", background=p["bg"], foreground=p["muted"])
+        st.configure("Title.TLabel", background=p["bg"], foreground=p["text"],
+                     font=(display or ui or "TkHeadingFont", 15, "bold"))
+        st.configure("Status.TLabel", background=p["heading"], foreground=p["muted"],
+                     padding=4)
+        st.configure("TLabelframe", background=p["bg"], bordercolor=p["border"])
+        st.configure("TLabelframe.Label", background=p["bg"], foreground=p["muted"])
+
+        # Buttons -- clam overrides configure() per state, so pin every look via map.
+        st.configure("TButton", background=p["surface"], foreground=p["text"],
+                     bordercolor=p["border"], padding=(10, 5), relief="flat")
+        st.map("TButton",
+               background=[("pressed", p["accent"]), ("active", p["hover"]),
+                           ("disabled", p["bg"]), ("!disabled", p["surface"])],
+               foreground=[("pressed", p["accent_text"]), ("disabled", p["muted"]),
+                           ("!disabled", p["text"])],
+               bordercolor=[("focus", p["accent"]), ("!focus", p["border"])])
+        st.configure("Accent.TButton", background=p["accent"],
+                     foreground=p["accent_text"], padding=(12, 6), relief="flat")
+        st.map("Accent.TButton",
+               background=[("pressed", p["sel"]), ("active", p["accent"]),
+                           ("!disabled", p["accent"])],
+               foreground=[("!disabled", p["accent_text"])])
+
+        st.configure("TCheckbutton", background=p["bg"], foreground=p["text"])
+        st.map("TCheckbutton", background=[("active", p["bg"])],
+               indicatorcolor=[("selected", p["accent"]), ("!selected", p["field"])])
+        st.configure("TRadiobutton", background=p["bg"], foreground=p["text"])
+        st.map("TRadiobutton", background=[("active", p["bg"])])
+
+        # Entry / Combobox / Spinbox fields.
+        for cls in ("TEntry", "TCombobox", "TSpinbox"):
+            st.configure(cls, fieldbackground=p["field"], foreground=p["text"],
+                         bordercolor=p["border"], insertcolor=p["text"],
+                         arrowcolor=p["muted"], padding=3)
+            st.map(cls,
+                   fieldbackground=[("readonly", p["field"]), ("disabled", p["bg"]),
+                                    ("!disabled", p["field"])],
+                   foreground=[("disabled", p["muted"]), ("!disabled", p["text"])],
+                   bordercolor=[("focus", p["accent"]), ("!focus", p["border"])])
+        root.option_add("*TCombobox*Listbox.background", p["surface"])
+        root.option_add("*TCombobox*Listbox.foreground", p["text"])
+        root.option_add("*TCombobox*Listbox.selectBackground", p["accent"])
+        root.option_add("*TCombobox*Listbox.selectForeground", p["accent_text"])
+
+        # Notebook tabs.
+        st.configure("TNotebook", background=p["bg"], bordercolor=p["border"],
+                     tabmargins=(4, 4, 4, 0))
+        st.configure("TNotebook.Tab", background=p["bg"], foreground=p["muted"],
+                     padding=(12, 6), bordercolor=p["border"])
+        st.map("TNotebook.Tab",
+               background=[("selected", p["surface"]), ("active", p["hover"])],
+               foreground=[("selected", p["accent"]), ("active", p["text"])])
+
+        # Treeview (the tables).
+        st.configure("Treeview", background=p["surface"], fieldbackground=p["surface"],
+                     foreground=p["text"], bordercolor=p["border"], rowheight=23,
+                     relief="flat")
+        st.map("Treeview",
+               background=[("selected", p["sel"])],
+               foreground=[("selected", p["sel_text"])])
+        st.configure("Treeview.Heading", background=p["heading"], foreground=p["muted"],
+                     relief="flat", padding=4)
+        st.map("Treeview.Heading", background=[("active", p["hover"])])
+
+        # Scrollbars + progress.
+        for cls in ("Vertical.TScrollbar", "Horizontal.TScrollbar", "TScrollbar"):
+            st.configure(cls, background=p["heading"], troughcolor=p["bg"],
+                         bordercolor=p["bg"], arrowcolor=p["muted"], relief="flat")
+            st.map(cls, background=[("active", p["border"])])
+        st.configure("TProgressbar", background=p["accent"], troughcolor=p["heading"],
+                     bordercolor=p["border"])
+        st.configure("TSeparator", background=p["border"])
+        st.configure("TPanedwindow", background=p["bg"])
     except Exception:
         pass
 
-    # Root + classic (tk, non-ttk) widget defaults.
+    # Root window + classic (tk, non-ttk) widget defaults.
     try:
-        root.configure(background=pal["bg"])
-        root.option_add("*background", pal["bg"])
-        root.option_add("*foreground", pal["text"])
-        root.option_add("*Listbox.background", pal["surface"])
-        root.option_add("*Listbox.foreground", pal["text"])
-        root.option_add("*Listbox.selectBackground", pal["accent"])
-        root.option_add("*Listbox.selectForeground", pal["accent_text"])
-        root.option_add("*Text.background", pal["surface"])
-        root.option_add("*Text.foreground", pal["text"])
-        root.option_add("*Text.insertBackground", pal["text"])
+        root.configure(background=p["bg"])
+        root.option_add("*background", p["bg"])
+        root.option_add("*foreground", p["text"])
+        root.option_add("*Listbox.background", p["surface"])
+        root.option_add("*Listbox.foreground", p["text"])
+        root.option_add("*Listbox.selectBackground", p["accent"])
+        root.option_add("*Listbox.selectForeground", p["accent_text"])
+        root.option_add("*Listbox.highlightThickness", 0)
+        root.option_add("*Text.background", p["surface"])
+        root.option_add("*Text.foreground", p["text"])
+        root.option_add("*Text.insertBackground", p["text"])
+        root.option_add("*Text.highlightThickness", 0)
+        root.option_add("*Menu.background", p["surface"])
+        root.option_add("*Menu.foreground", p["text"])
+        root.option_add("*Menu.activeBackground", p["accent"])
+        root.option_add("*Menu.activeForeground", p["accent_text"])
     except Exception:
         pass
 
-    _retheme_classic(root, pal)
-    _apply_window_chrome(root, dark)
+    _retheme_classic(root, p)
     return ui or "TkDefaultFont"
 
 
-def _retheme_classic(widget, pal):
-    """Recolor classic (non-ttk) Text / Listbox / Canvas widgets in the tree so
-    a live light/dark switch updates them too. Best-effort per widget."""
+def _retheme_classic(widget, p):
+    """Recolor classic (non-ttk) Text / Listbox / Canvas widgets already created,
+    so a live light/dark switch updates them too. Best-effort per widget."""
     try:
         cls = widget.winfo_class()
         if cls in ("Text", "Listbox"):
-            widget.configure(background=pal["surface"], foreground=pal["text"],
-                             highlightbackground=pal["border"])
+            widget.configure(background=p["surface"], foreground=p["text"],
+                             highlightthickness=0)
             try:
-                widget.configure(insertbackground=pal["text"],
-                                 selectbackground=pal["accent"],
-                                 selectforeground=pal["accent_text"])
+                widget.configure(insertbackground=p["text"],
+                                 selectbackground=p["accent"],
+                                 selectforeground=p["accent_text"])
             except Exception:
                 pass
         elif cls == "Canvas":
-            widget.configure(background=pal["bg"], highlightthickness=0)
+            widget.configure(background=p["bg"], highlightthickness=0)
     except Exception:
         pass
     for child in getattr(widget, "winfo_children", lambda: [])():
-        _retheme_classic(child, pal)
+        _retheme_classic(child, p)
 
 
 def text_widget_colors(dark=False):
     """Palette colors for ad-hoc tk.Text / tk.Listbox created after theming."""
-    pal = PALETTES["dark" if dark else "light"]
-    return {"bg": pal["surface"], "fg": pal["text"], "muted": pal["muted"],
-            "accent": pal["accent"], "sel": pal["sel"]}
+    p = PALETTES["dark" if dark else "light"]
+    return {"bg": p["surface"], "fg": p["text"], "muted": p["muted"],
+            "accent": p["accent"], "sel": p["sel"]}
 
 
-def _apply_window_chrome(root, dark):
-    """Windows-only backdrop/title-bar styling via pywinstyles (optional).
-
-    Applies the configured WINDOW_STYLE (acrylic by default). pywinstyles needs a
-    realized window, so it runs once via ``after``. Everything is guarded; on
-    non-Windows or without pywinstyles it is a no-op and the app is unaffected.
-    """
-    if platform.system() != "Windows":
-        return
-
-    def _do():
-        try:
-            import pywinstyles
-        except Exception:
-            return  # pywinstyles not installed / not Windows -> plain look
-        # Acrylic's translucency only reads well over dark content -- over a light
-        # UI it washes everything out and bleeds the desktop through. So the
-        # translucent backdrop is dark-mode only; light mode stays a clean,
-        # opaque window with a flat light title bar.
-        style = WINDOW_STYLE if dark else "light"
-        try:
-            pywinstyles.apply_style(root, style)
-        except Exception:
-            try:
-                pywinstyles.apply_style(root, "dark" if dark else "light")
-            except Exception:
-                return
-        try:
-            pywinstyles.change_title_color(root, "white" if dark else "black")
-        except Exception:
-            pass
-
-    try:
-        root.after(0, _do)
-    except Exception:
-        _do()
-
+# ---------------------------------------------------------------------------
+# Font picker
+# ---------------------------------------------------------------------------
 
 def list_font_families(root):
     """Sorted, de-duplicated font families installed on this machine (plus the
@@ -312,7 +326,7 @@ def choose_font(root, current, on_apply):
     win = tk.Toplevel(root)
     win.title("Choose font")
     win.transient(root)
-    win.geometry("360x420")
+    win.geometry("360x430")
     try:
         win.grab_set()
     except Exception:

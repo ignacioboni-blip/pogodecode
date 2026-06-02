@@ -78,7 +78,6 @@ damages, or other liability arising from the software or its use.
   [`pogodecode/assets/fonts/`](../pogodecode/assets/fonts/). The OFL permits
   bundling and redistribution; the fonts are not sold and are not the reserved
   name of this project.
-- **`pywinstyles`** (optional, Windows theming) — MIT licensed, used unmodified.
 
 See [NOTICE](../NOTICE) for the consolidated attribution list.
 

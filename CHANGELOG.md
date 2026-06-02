@@ -65,11 +65,11 @@ First public release.
   runtime on Windows/macOS/Linux with graceful fallback to the system font.
 - **Font picker** — **View → Choose font…** lets you use any font installed on
   your machine (searchable, with live preview); remembered across sessions.
-- **Light & dark themes** with a **View → Dark mode** toggle (remembered across
-  sessions). On Windows, **dark mode** uses the translucent **acrylic** backdrop
-  via optional `pywinstyles` (configurable through `WINDOW_STYLE`); **light mode
-  stays an opaque window** — acrylic over a light UI washed it out, so it is now
-  applied in dark mode only.
+- **Self-contained light & dark theme** — a pure-ttk theme (styled widgets only,
+  no OS window hacks) that renders identically on Windows/macOS/Linux; toggle via
+  **View → Dark mode** (remembered across sessions). Replaces the earlier
+  `pywinstyles`/acrylic approach, which washed out light mode on Windows and
+  couldn't be themed reliably across platforms.
 - All theming is best-effort and isolated to the GUIs — the CLI/library remain
   dependency-free and headless-safe.
 

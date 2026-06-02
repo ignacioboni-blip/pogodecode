@@ -196,25 +196,20 @@ python -m pogodecode.dexcli GAME_MASTER --bundle data.json   # versioned, stampe
 
 Both apps ship with a clean, modern look out of the box:
 
+- **Self-contained theme.** A hand-written **pure-ttk** light & dark theme —
+  styled widgets only, **no OS window hacks** — so it renders identically and
+  reliably on Windows, macOS and Linux (fully opaque, high-contrast). Toggle via
+  **View → Dark mode** (remembered between sessions).
 - **Bundled font.** The UI uses **Google Sans Flex** as its default font, with
   **Quicksand** for display text — both [SIL OFL](pogodecode/assets/fonts/)
-  licensed and **embedded in the app**, so they render the same on every machine
-  with nothing to install. Fonts are registered at runtime (Windows / macOS /
-  Linux); if registration isn't possible, the app falls back to the system font.
+  licensed and **embedded in the app**, so they render the same everywhere with
+  nothing to install. Registered at runtime; falls back to the system font if not.
 - **Pick your own font.** **View → Choose font…** opens a searchable picker of
   every font installed on your machine, with a live preview. Your choice is
   remembered between sessions; "Use bundled font" restores Google Sans Flex.
-- **Light & dark themes.** Toggle via **View → Dark mode** (remembered between
-  sessions).
-- **Acrylic window on Windows (dark mode).** In **dark mode** on Windows the app
-  uses the translucent **acrylic** backdrop with a dark title bar, via the
-  optional [`pywinstyles`](https://pypi.org/project/pywinstyles/) package
-  (bundled in the prebuilt `.exe`). Acrylic's translucency only reads well over
-  dark content, so **light mode stays a clean, opaque window** — applying acrylic
-  to a light UI washes it out. The dark-mode effect is set by `WINDOW_STYLE` in
-  `pogodecode/_theme.py` (swap to `"mica"`, `"aero"`, … if you prefer).
-  Everything is best-effort and falls back to a flat title bar off-Windows or
-  without the dependency.
+
+All theming is best-effort and isolated to the GUIs — the CLI/library stay
+dependency-free and headless-safe.
 
 ## How it works (methodology)
 

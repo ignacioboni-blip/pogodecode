@@ -23,7 +23,3 @@ Quicksand
            pogodecode/assets/fonts/Quicksand-Bold.ttf
   License: SIL Open Font License, Version 1.1
   Text:    pogodecode/assets/fonts/OFL-Quicksand.txt
-
-pywinstyles (optional, Windows-only runtime theming)
-  License: MIT License
-  Source:  https://pypi.org/project/pywinstyles/

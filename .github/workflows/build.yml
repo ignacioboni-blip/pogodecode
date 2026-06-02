@@ -47,9 +47,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y python3-tk
       - name: Install PyInstaller
         run: python -m pip install --upgrade pip pyinstaller
-      - name: Install Windows theming dependency
-        if: matrix.os == 'windows-latest'
-        run: python -m pip install pywinstyles
       - name: Build executables
         run: pyinstaller --noconfirm pogodecode.spec
       - name: Package (Windows)

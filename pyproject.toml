@@ -31,8 +31,6 @@ Changelog = "https://github.com/ignacioboni-blip/pogodecode/blob/main/CHANGELOG.
 
 [project.optional-dependencies]
 build = ["pyinstaller>=6.0"]
-# pywinstyles: optional, Windows-only modern title-bar theming (mica/dark).
-gui = ["pywinstyles>=1.8; platform_system == 'Windows'"]
 dev = ["pytest>=7.0", "pyflakes>=3.0", "pillow>=10.0"]  # pillow: regenerate docs mockups
 
 [project.scripts]
