@@ -144,6 +144,8 @@ class ViewerApp:
                                values=["Dex #", "Attack", "Defense", "Stamina", "Max CP"])
         sort_cb.pack(side="left", padx=2)
         sort_cb.bind("<<ComboboxSelected>>", lambda *_: self._refresh_list())
+        # Far right of the filter row (was overlapping the dropdowns before).
+        ttk.Button(bar, text="📌 Add to Compare", command=self._add_compare).pack(side="right")
 
         lf = ttk.Frame(tab)
         lf.grid(row=1, column=0, rowspan=2, sticky="ns", padx=4)
@@ -153,8 +155,6 @@ class ViewerApp:
         sb = ttk.Scrollbar(lf, command=self.listbox.yview)
         sb.pack(side="left", fill="y")
         self.listbox.configure(yscrollcommand=sb.set)
-        ttk.Button(tab, text="📌 Add to Compare", command=self._add_compare).grid(
-            row=0, column=0, sticky="e", padx=4)
 
         self.detail = tk.Text(tab, wrap="word", state="disabled", padx=10, pady=8, width=68)
         self.detail.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=4, pady=4)

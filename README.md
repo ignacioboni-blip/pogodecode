@@ -203,11 +203,14 @@ Both apps ship with a clean, modern look out of the box:
   Linux); if registration isn't possible, the app falls back to the system font.
 - **Light & dark themes.** Toggle via **View → Dark mode** (remembered between
   sessions).
-- **Native Windows styling.** On Windows, the title bar is styled to match via the
-  optional [`pywinstyles`](https://pypi.org/project/pywinstyles/) package
-  (`pip install pywinstyles`); it's bundled in the prebuilt `.exe`. Everything is
-  best-effort — a missing dependency or unsupported platform silently falls back
-  to the default look and never breaks the app.
+- **Acrylic window on Windows.** On Windows the app uses the translucent
+  **acrylic** backdrop (with a dark title bar) via the optional
+  [`pywinstyles`](https://pypi.org/project/pywinstyles/) package
+  (`pip install pywinstyles`); it's bundled in the prebuilt `.exe`. The effect is
+  set by `WINDOW_STYLE` in `pogodecode/_theme.py` (swap to `"mica"`, `"aero"`,
+  etc. if you prefer). Everything is best-effort — a missing dependency, an older
+  Windows build, or a non-Windows OS silently falls back to a flat title bar and
+  never breaks the app.
 
 ## How it works (methodology)
 

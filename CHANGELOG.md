@@ -64,7 +64,8 @@ First public release.
   and **Quicksand** (display), both SIL OFL and bundled in the app; registered at
   runtime on Windows/macOS/Linux with graceful fallback to the system font.
 - **Light & dark themes** with a **View → Dark mode** toggle (remembered across
-  sessions); on Windows the title bar is styled via optional `pywinstyles`.
+  sessions); on Windows the window uses the translucent **acrylic** backdrop via
+  optional `pywinstyles` (configurable through `WINDOW_STYLE`).
 - All theming is best-effort and isolated to the GUIs — the CLI/library remain
   dependency-free and headless-safe.
 

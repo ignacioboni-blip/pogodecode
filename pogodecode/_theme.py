@@ -15,6 +15,11 @@ import sys
 UI_FONT = "Google Sans Flex"     # default UI font
 DISPLAY_FONT = "Quicksand"       # used for headings / the app title
 
+# Windows-only backdrop applied via pywinstyles. "acrylic" gives the translucent,
+# blurred system backdrop with a dark title bar (Windows 10/11). Other options:
+# "mica", "aero", "transparent", "dark", "light". Acrylic implies a dark chrome.
+WINDOW_STYLE = "acrylic"
+
 # Light and dark palettes. Keys are referenced by apply_theme().
 PALETTES = {
     "light": {
@@ -239,20 +244,36 @@ def text_widget_colors(dark=False):
 
 
 def _apply_window_chrome(root, dark):
-    """Windows-only title-bar styling via pywinstyles (optional dependency)."""
+    """Windows-only backdrop/title-bar styling via pywinstyles (optional).
+
+    Applies the configured WINDOW_STYLE (acrylic by default). pywinstyles needs a
+    realized window, so it runs once via ``after``. Everything is guarded; on
+    non-Windows or without pywinstyles it is a no-op and the app is unaffected.
+    """
     if platform.system() != "Windows":
         return
+
+    def _do():
+        try:
+            import pywinstyles
+        except Exception:
+            return  # pywinstyles not installed / not Windows -> plain look
+        try:
+            pywinstyles.apply_style(root, WINDOW_STYLE)
+        except Exception:
+            # Older Windows without acrylic support -> flat dark/light title bar.
+            try:
+                pywinstyles.apply_style(root, "dark" if dark else "light")
+            except Exception:
+                return
+        # Acrylic/aero/dark give a dark chrome -> keep the title text legible.
+        try:
+            light_chrome = WINDOW_STYLE in ("light", "normal") and not dark
+            pywinstyles.change_title_color(root, "black" if light_chrome else "white")
+        except Exception:
+            pass
+
     try:
-        import pywinstyles
-        # 'mica' on Windows 11 gives the translucent system look; fall back to a
-        # dark/light header on older builds.
-        try:
-            pywinstyles.apply_style(root, "dark" if dark else "light")
-        except Exception:
-            pass
-        try:
-            pywinstyles.change_header_color(root, "#1e1f22" if dark else "#f4f5f7")
-        except Exception:
-            pass
+        root.after(0, _do)
     except Exception:
-        pass
+        _do()
