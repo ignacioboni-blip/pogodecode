@@ -104,11 +104,12 @@ def _family_available(root, family):
         return False
 
 
-def apply_theme(root, dark=False):
+def apply_theme(root, dark=False, font=None):
     """Register fonts and apply the theme to ``root``. Best-effort; never raises.
 
-    Returns the resolved UI font family (the bundled one if available, else the
-    Tk default), so callers can use it for ad-hoc widgets.
+    ``font`` optionally overrides the UI font family with any font installed on
+    the machine (see :func:`list_font_families`); it falls back to the bundled
+    font, then to the Tk default. Returns the resolved family.
     """
     from tkinter import font as tkfont
     from tkinter import ttk
@@ -118,7 +119,12 @@ def apply_theme(root, dark=False):
     except Exception:
         pass
 
-    ui = UI_FONT if _family_available(root, UI_FONT) else None
+    # Resolve the UI font: user choice -> bundled Google Sans Flex -> Tk default.
+    ui = None
+    for candidate in (font, UI_FONT):
+        if candidate and _family_available(root, candidate):
+            ui = candidate
+            break
     display = DISPLAY_FONT if _family_available(root, DISPLAY_FONT) else ui
     pal = PALETTES["dark" if dark else "light"]
 
@@ -258,18 +264,20 @@ def _apply_window_chrome(root, dark):
             import pywinstyles
         except Exception:
             return  # pywinstyles not installed / not Windows -> plain look
+        # Acrylic's translucency only reads well over dark content -- over a light
+        # UI it washes everything out and bleeds the desktop through. So the
+        # translucent backdrop is dark-mode only; light mode stays a clean,
+        # opaque window with a flat light title bar.
+        style = WINDOW_STYLE if dark else "light"
         try:
-            pywinstyles.apply_style(root, WINDOW_STYLE)
+            pywinstyles.apply_style(root, style)
         except Exception:
-            # Older Windows without acrylic support -> flat dark/light title bar.
             try:
                 pywinstyles.apply_style(root, "dark" if dark else "light")
             except Exception:
                 return
-        # Acrylic/aero/dark give a dark chrome -> keep the title text legible.
         try:
-            light_chrome = WINDOW_STYLE in ("light", "normal") and not dark
-            pywinstyles.change_title_color(root, "black" if light_chrome else "white")
+            pywinstyles.change_title_color(root, "white" if dark else "black")
         except Exception:
             pass
 
@@ -277,3 +285,89 @@ def _apply_window_chrome(root, dark):
         root.after(0, _do)
     except Exception:
         _do()
+
+
+def list_font_families(root):
+    """Sorted, de-duplicated font families installed on this machine (plus the
+    bundled ones). '@'-prefixed vertical CJK variants are filtered out."""
+    try:
+        from tkinter import font as tkfont
+        seen, out = set(), []
+        for fam in tkfont.families(root):
+            if fam.startswith("@") or fam in seen:
+                continue
+            seen.add(fam)
+            out.append(fam)
+        return sorted(out, key=str.lower)
+    except Exception:
+        return []
+
+
+def choose_font(root, current, on_apply):
+    """Open a searchable font picker. Calls ``on_apply(family)`` when chosen."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    fams = list_font_families(root)
+    win = tk.Toplevel(root)
+    win.title("Choose font")
+    win.transient(root)
+    win.geometry("360x420")
+    try:
+        win.grab_set()
+    except Exception:
+        pass
+
+    ttk.Label(win, text="Filter:").pack(anchor="w", padx=10, pady=(10, 2))
+    filt = tk.StringVar()
+    ttk.Entry(win, textvariable=filt).pack(fill="x", padx=10)
+
+    mid = ttk.Frame(win)
+    mid.pack(fill="both", expand=True, padx=10, pady=6)
+    lb = tk.Listbox(mid, exportselection=False, activestyle="dotbox")
+    lb.pack(side="left", fill="both", expand=True)
+    sb = ttk.Scrollbar(mid, command=lb.yview)
+    sb.pack(side="left", fill="y")
+    lb.configure(yscrollcommand=sb.set)
+
+    preview = ttk.Label(win, text="The quick brown fox — Pokémon GO 0123456789",
+                        anchor="w", wraplength=330)
+    preview.pack(fill="x", padx=10, pady=(0, 8))
+
+    def populate(*_):
+        term = filt.get().lower()
+        lb.delete(0, "end")
+        for fam in fams:
+            if term in fam.lower():
+                lb.insert("end", fam)
+        if current in fams and (not term or term in current.lower()):
+            try:
+                idx = list(lb.get(0, "end")).index(current)
+                lb.selection_set(idx)
+                lb.see(idx)
+                preview.configure(font=(current, 15))
+            except ValueError:
+                pass
+
+    def on_sel(*_):
+        sel = lb.curselection()
+        if sel:
+            preview.configure(font=(lb.get(sel[0]), 15))
+
+    def apply_and_close():
+        sel = lb.curselection()
+        fam = lb.get(sel[0]) if sel else current
+        on_apply(fam)
+        win.destroy()
+
+    filt.trace_add("write", populate)
+    lb.bind("<<ListboxSelect>>", on_sel)
+    lb.bind("<Double-Button-1>", lambda *_: apply_and_close())
+    populate()
+
+    btns = ttk.Frame(win)
+    btns.pack(fill="x", padx=10, pady=(0, 10))
+    ttk.Button(btns, text="Use bundled font",
+               command=lambda: (on_apply(UI_FONT), win.destroy())).pack(side="left")
+    ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
+    ttk.Button(btns, text="Apply", command=apply_and_close).pack(side="right", padx=6)

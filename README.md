@@ -201,16 +201,20 @@ Both apps ship with a clean, modern look out of the box:
   licensed and **embedded in the app**, so they render the same on every machine
   with nothing to install. Fonts are registered at runtime (Windows / macOS /
   Linux); if registration isn't possible, the app falls back to the system font.
+- **Pick your own font.** **View → Choose font…** opens a searchable picker of
+  every font installed on your machine, with a live preview. Your choice is
+  remembered between sessions; "Use bundled font" restores Google Sans Flex.
 - **Light & dark themes.** Toggle via **View → Dark mode** (remembered between
   sessions).
-- **Acrylic window on Windows.** On Windows the app uses the translucent
-  **acrylic** backdrop (with a dark title bar) via the optional
-  [`pywinstyles`](https://pypi.org/project/pywinstyles/) package
-  (`pip install pywinstyles`); it's bundled in the prebuilt `.exe`. The effect is
-  set by `WINDOW_STYLE` in `pogodecode/_theme.py` (swap to `"mica"`, `"aero"`,
-  etc. if you prefer). Everything is best-effort — a missing dependency, an older
-  Windows build, or a non-Windows OS silently falls back to a flat title bar and
-  never breaks the app.
+- **Acrylic window on Windows (dark mode).** In **dark mode** on Windows the app
+  uses the translucent **acrylic** backdrop with a dark title bar, via the
+  optional [`pywinstyles`](https://pypi.org/project/pywinstyles/) package
+  (bundled in the prebuilt `.exe`). Acrylic's translucency only reads well over
+  dark content, so **light mode stays a clean, opaque window** — applying acrylic
+  to a light UI washes it out. The dark-mode effect is set by `WINDOW_STYLE` in
+  `pogodecode/_theme.py` (swap to `"mica"`, `"aero"`, … if you prefer).
+  Everything is best-effort and falls back to a flat title bar off-Windows or
+  without the dependency.
 
 ## How it works (methodology)
 

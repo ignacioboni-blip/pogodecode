@@ -28,7 +28,7 @@ class ViewerApp:
         self.root.minsize(940, 640)
         _icon.apply_icon(root)
         self._dark = tk.BooleanVar(value=bool(_config.load().get("dark", False)))
-        _theme.apply_theme(root, dark=self._dark.get())
+        _theme.apply_theme(root, dark=self._dark.get(), font=_config.load().get("font"))
         self.dex = None
         self._keys: list[str] = []
         self._sheet_cache: dict = {}
@@ -51,6 +51,7 @@ class ViewerApp:
         viewm = tk.Menu(menubar, tearoff=0)
         viewm.add_checkbutton(label="Dark mode", variable=self._dark,
                               command=self._toggle_dark)
+        viewm.add_command(label="Choose font…", command=self._choose_font)
         menubar.add_cascade(label="View", menu=viewm)
         helpm = tk.Menu(menubar, tearoff=0)
         helpm.add_command(label="About", command=self._about)
@@ -59,8 +60,16 @@ class ViewerApp:
 
     def _toggle_dark(self) -> None:
         dark = self._dark.get()
-        _theme.apply_theme(self.root, dark=dark)
+        _theme.apply_theme(self.root, dark=dark, font=_config.load().get("font"))
         data = _config.load(); data["dark"] = dark; _config.save(data)
+
+    def _choose_font(self) -> None:
+        cur = _config.load().get("font") or _theme.UI_FONT
+
+        def apply(family):
+            data = _config.load(); data["font"] = family; _config.save(data)
+            _theme.apply_theme(self.root, dark=self._dark.get(), font=family)
+        _theme.choose_font(self.root, cur, apply)
 
     def _about(self) -> None:
         messagebox.showinfo(
