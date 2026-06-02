@@ -24,7 +24,8 @@ def _build(entry, name):
         [entry],
         pathex=[],
         binaries=[],
-        datas=[],
+        # Bundle the embedded UI fonts (SIL OFL) so the app can register them.
+        datas=[("pogodecode/assets/fonts", "pogodecode/assets/fonts")],
         hiddenimports=[],
         hookspath=[],
         runtime_hooks=[],

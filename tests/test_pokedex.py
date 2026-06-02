@@ -13,6 +13,22 @@ from pogodecode.pokedex import (  # noqa: E402
 )
 
 
+def test_bundled_fonts_present_and_theme_imports_headlessly():
+    """The UI fonts must ship with the package and the theme module must import
+    without Tk (so the CLI/library stay headless-safe)."""
+    import glob
+    import os
+    from pogodecode import _theme  # must not import tkinter at module load
+    d = _theme._font_dir()
+    ttfs = {os.path.basename(p) for p in glob.glob(os.path.join(d, "*.ttf"))}
+    assert "GoogleSansFlex.ttf" in ttfs
+    assert any(n.startswith("Quicksand") for n in ttfs)
+    # OFL license texts must travel with the fonts.
+    assert glob.glob(os.path.join(d, "OFL-*.txt"))
+    assert _theme.UI_FONT == "Google Sans Flex"
+    assert set(_theme.PALETTES) == {"light", "dark"}
+
+
 def test_sentinel_power_moves_flagged_as_placeholder():
     """Niantic ships OHKO moves (Horn Drill 9000, Fissure 9001) with a sentinel
     power; they must be flagged, not shown as real moves. No fixture needed."""

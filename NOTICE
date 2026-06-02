@@ -1,0 +1,29 @@
+pogodecode
+Copyright (c) 2026 pogodecode contributors
+Licensed under the MIT License (see LICENSE).
+
+This is an unofficial, fan-made project. It is NOT affiliated with, endorsed by,
+or connected to Niantic, Nintendo, The Pokémon Company, Game Freak, or Creatures
+Inc. "Pokémon", "Pokémon GO", and related names and logos are trademarks of their
+respective owners, used here nominatively only. The project ships no game data;
+it decodes a GAME_MASTER file the user already possesses. See docs/LEGAL.md.
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+Google Sans Flex
+  Files:   pogodecode/assets/fonts/GoogleSansFlex.ttf
+  License: SIL Open Font License, Version 1.1
+  Text:    pogodecode/assets/fonts/OFL-GoogleSansFlex.txt
+
+Quicksand
+  Files:   pogodecode/assets/fonts/Quicksand-Regular.ttf
+           pogodecode/assets/fonts/Quicksand-Medium.ttf
+           pogodecode/assets/fonts/Quicksand-Bold.ttf
+  License: SIL Open Font License, Version 1.1
+  Text:    pogodecode/assets/fonts/OFL-Quicksand.txt
+
+pywinstyles (optional, Windows-only runtime theming)
+  License: MIT License
+  Source:  https://pypi.org/project/pywinstyles/

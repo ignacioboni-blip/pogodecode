@@ -59,6 +59,22 @@ First public release.
   bundle + changelog → publish a rolling `data-latest` release; publishes nothing
   if the guard fails. Point it at your source via the `GAME_MASTER_URL` variable.
 
+### Look & feel
+- **Embedded fonts** — the GUI ships with **Google Sans Flex** (default UI font)
+  and **Quicksand** (display), both SIL OFL and bundled in the app; registered at
+  runtime on Windows/macOS/Linux with graceful fallback to the system font.
+- **Light & dark themes** with a **View → Dark mode** toggle (remembered across
+  sessions); on Windows the title bar is styled via optional `pywinstyles`.
+- All theming is best-effort and isolated to the GUIs — the CLI/library remain
+  dependency-free and headless-safe.
+
+### Legal
+- Comprehensive **legal notices** ([docs/LEGAL.md](docs/LEGAL.md), [NOTICE](NOTICE),
+  expanded README section): unofficial/fan-project disclaimer, nominative
+  trademark use, ships-no-game-data statement, acceptable-use & ToS
+  responsibility, no-warranty, third-party (OFL fonts) attribution, and a
+  rights-holder takedown contact path.
+
 ### Packaging
 - One-click Windows build; CI builds standalone binaries for Windows, macOS and
   Linux and attaches them to GitHub Releases on version tags.

@@ -31,6 +31,8 @@ Changelog = "https://github.com/ignacioboni-blip/pogodecode/blob/main/CHANGELOG.
 
 [project.optional-dependencies]
 build = ["pyinstaller>=6.0"]
+# pywinstyles: optional, Windows-only modern title-bar theming (mica/dark).
+gui = ["pywinstyles>=1.8; platform_system == 'Windows'"]
 dev = ["pytest>=7.0", "pyflakes>=3.0", "pillow>=10.0"]  # pillow: regenerate docs mockups
 
 [project.scripts]
@@ -43,3 +45,6 @@ pogodex-gui = "pogodecode.viewer:main"
 
 [tool.setuptools]
 packages = ["pogodecode"]
+
+[tool.setuptools.package-data]
+pogodecode = ["assets/fonts/*.ttf", "assets/fonts/*.txt"]

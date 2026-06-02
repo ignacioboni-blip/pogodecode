@@ -17,7 +17,7 @@ import traceback
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__, _config, _icon
+from . import __version__, _config, _icon, _theme
 from .pokedex import TYPE_NAMES, diff_pokedex, load_pokedex
 
 
@@ -27,6 +27,8 @@ class ViewerApp:
         self.root.title(f"PoGo Pokédex Viewer v{__version__}")
         self.root.minsize(940, 640)
         _icon.apply_icon(root)
+        self._dark = tk.BooleanVar(value=bool(_config.load().get("dark", False)))
+        _theme.apply_theme(root, dark=self._dark.get())
         self.dex = None
         self._keys: list[str] = []
         self._sheet_cache: dict = {}
@@ -46,10 +48,19 @@ class ViewerApp:
         filem.add_separator()
         filem.add_command(label="Exit", command=self.root.destroy)
         menubar.add_cascade(label="File", menu=filem)
+        viewm = tk.Menu(menubar, tearoff=0)
+        viewm.add_checkbutton(label="Dark mode", variable=self._dark,
+                              command=self._toggle_dark)
+        menubar.add_cascade(label="View", menu=viewm)
         helpm = tk.Menu(menubar, tearoff=0)
         helpm.add_command(label="About", command=self._about)
         menubar.add_cascade(label="Help", menu=helpm)
         self.root.config(menu=menubar)
+
+    def _toggle_dark(self) -> None:
+        dark = self._dark.get()
+        _theme.apply_theme(self.root, dark=dark)
+        data = _config.load(); data["dark"] = dark; _config.save(data)
 
     def _about(self) -> None:
         messagebox.showinfo(

@@ -17,7 +17,7 @@ import traceback
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__, _config, _icon, write_json
+from . import __version__, _config, _icon, _theme, write_json
 from .gamemaster import decode_game_master
 from .protobuf_decoder import ProtobufDecodeError
 
@@ -28,6 +28,8 @@ class DecoderApp:
         self.root.title(f"PoGo GAME_MASTER Decoder v{__version__}")
         self.root.minsize(640, 460)
         _icon.apply_icon(root)
+        self._dark = tk.BooleanVar(value=bool(_config.load().get("dark", False)))
+        _theme.apply_theme(root, dark=self._dark.get())
 
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
@@ -35,8 +37,34 @@ class DecoderApp:
         self._events: "queue.Queue[tuple]" = queue.Queue()
         self._worker: threading.Thread | None = None
 
+        self._build_menu()
         self._build_widgets()
         self.root.after(100, self._drain_events)
+
+    def _build_menu(self) -> None:
+        menubar = tk.Menu(self.root)
+        viewm = tk.Menu(menubar, tearoff=0)
+        viewm.add_checkbutton(label="Dark mode", variable=self._dark,
+                              command=self._toggle_dark)
+        menubar.add_cascade(label="View", menu=viewm)
+        helpm = tk.Menu(menubar, tearoff=0)
+        helpm.add_command(label="About", command=self._about)
+        menubar.add_cascade(label="Help", menu=helpm)
+        self.root.config(menu=menubar)
+
+    def _toggle_dark(self) -> None:
+        dark = self._dark.get()
+        _theme.apply_theme(self.root, dark=dark)
+        data = _config.load(); data["dark"] = dark; _config.save(data)
+
+    def _about(self) -> None:
+        from tkinter import messagebox
+        messagebox.showinfo(
+            "About",
+            f"PoGo GAME_MASTER Decoder\nVersion {__version__}\n\n"
+            "Schema-free decoder for the Pokémon GO GAME_MASTER file. MIT licensed.\n"
+            "Not affiliated with Niantic, Nintendo, or The Pokémon Company.\n"
+            "Ships no game data — it only decodes a file you already have.")
 
     # -- layout -------------------------------------------------------------
     def _build_widgets(self) -> None:
