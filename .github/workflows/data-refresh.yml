@@ -1,0 +1,73 @@
+# Scheduled data refresh: fetch a GAME_MASTER, decode it, gate it behind the
+# drift-guard, and publish versioned JSON + a changelog as a rolling release.
+#
+# SETUP (one time): point it at your GAME_MASTER source by either
+#   - setting a repository variable  GAME_MASTER_URL  (Settings → Secrets and
+#     variables → Actions → Variables), or
+#   - running it manually (Actions → Data refresh → Run workflow) and pasting a URL.
+# This repo intentionally does NOT hardcode a third-party mirror — you choose the
+# source you trust. The job fails loudly (and publishes nothing) if the decoded
+# data does not pass the drift-guard, so a bad/renumbered GAME_MASTER never ships.
+
+name: Data refresh
+
+on:
+  schedule:
+    - cron: "17 6 * * *"          # daily, 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      game_master_url:
+        description: "URL to fetch the GAME_MASTER from (overrides the GAME_MASTER_URL variable)"
+        required: false
+        type: string
+
+permissions:
+  contents: write                  # to publish the rolling 'data-latest' release
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e .
+
+      - name: Resolve GAME_MASTER source
+        id: src
+        run: |
+          URL="${{ inputs.game_master_url || vars.GAME_MASTER_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::No GAME_MASTER source. Set the GAME_MASTER_URL repo variable or pass game_master_url when running manually."
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch GAME_MASTER
+        run: curl -fSL "${{ steps.src.outputs.url }}" -o GAME_MASTER
+
+      - name: Drift-guard (fails the job if the data looks broken)
+        run: python -m pogodecode.dexcli GAME_MASTER --check
+
+      - name: Decode + build versioned outputs
+        run: |
+          mkdir -p dist
+          python -m pogodecode.cli   GAME_MASTER -o dist/game_master.json --minify
+          python -m pogodecode.dexcli GAME_MASTER --bundle dist/pokedex.json
+
+      - name: Generate changelog vs the previously published data (best effort)
+        run: |
+          if curl -fsSL "https://github.com/${{ github.repository }}/releases/download/data-latest/game_master.json" -o prev.json; then
+            python -m pogodecode.dexcli prev.json --diff GAME_MASTER --format md > dist/CHANGELOG_DATA.md || true
+          else
+            echo "_First publish — no previous data to diff against._" > dist/CHANGELOG_DATA.md
+          fi
+
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: data-latest
+          name: Latest decoded GAME_MASTER data
+          body_path: dist/CHANGELOG_DATA.md
+          files: dist/*

@@ -8,7 +8,29 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pogodecode.pokedex import Pokedex, _to_signed, _packed_move_ids  # noqa: E402
+from pogodecode.pokedex import (  # noqa: E402
+    Pokedex, _to_signed, _packed_move_ids, diff_to_markdown,
+)
+
+
+def test_diff_to_markdown_renders_changes():
+    """Changelog rendering needs no GAME_MASTER fixture."""
+    report = {
+        "old": "OLD", "new": "NEW",
+        "templatesAdded": {"count": 1, "sample": ["V9999_POKEMON_NEWMON"]},
+        "templatesRemoved": {"count": 0, "sample": []},
+        "pokemonChanged": {"count": 1, "details": [
+            {"templateId": "V0006_POKEMON_CHARIZARD", "name": "Charizard",
+             "changes": {"baseStats": {"old": {"attack": 223}, "new": {"attack": 230}},
+                         "moves": {"added": ["Fly"], "removed": []}}},
+        ]},
+    }
+    md = diff_to_markdown(report)
+    assert "OLD" in md and "NEW" in md
+    assert "V9999_POKEMON_NEWMON" in md
+    assert "Charizard" in md
+    assert "moves +Fly" in md
+    assert "templates added" in md and "**1**" in md
 
 
 def _packed_varints(values):
@@ -302,3 +324,22 @@ def test_real_file_form_and_mega_required_moves():
     assert "Secret Sword" in required("V0647_POKEMON_KELDEO_RESOLUTE")
     # A normal Pokemon has no signature-move section (no false positives).
     assert dex.sheet("V0006_POKEMON_CHARIZARD")["requiredMoves"] == []
+
+
+@pytest.mark.skipif(_real() is None, reason="no real GAME_MASTER file available")
+def test_real_file_health_check_and_bundle():
+    from pogodecode.pokedex import load_pokedex, export_bundle
+    dex = load_pokedex(_real())
+
+    # Drift-guard passes on a good file, and trips when the threshold is impossible.
+    assert dex.health_check()["ok"] is True
+    assert all(c["ok"] for c in dex.health_check()["checks"])
+    assert dex.health_check(max_moveless=0)["ok"] is False   # 2 move-less (Smeargle)
+
+    # Versioned bundle is self-describing and deterministic.
+    b1 = export_bundle(dex, source_path=_real())
+    b2 = export_bundle(dex, source_path=_real())
+    assert b1["meta"]["version"] == b2["meta"]["version"]    # stable content key
+    assert b1["meta"]["healthOk"] is True
+    assert b1["meta"]["pokemonCount"] == len(dex.pokemon_keys())
+    assert b1["sheets"] and "templateId" in b1["sheets"][0]

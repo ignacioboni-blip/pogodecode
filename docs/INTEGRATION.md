@@ -182,7 +182,12 @@ Every move (in `fastMoves`, `chargeMoves`, etc., and from `dex.all_moves()`):
 | `leagues()` | PvP leagues with CP caps |
 | `friendship_levels()` | friendship bonuses |
 | `validate()` | whole-file sanity report (see [BUGS.md](BUGS.md)) |
+| `health_check(max_moveless=5)` | pass/fail drift-guard: `{"ok": bool, "checks": [...]}` |
 | `template_ids()` / `template(id)` / `search_templates(term)` | raw template access |
+
+Module-level helpers: `diff_pokedex(old, new)` / `diff_files(a, b)` (structured
+diff), `diff_to_markdown(report)` (human changelog), and
+`export_bundle(dex, source_path=None)` (stamped, versioned export — see below).
 
 ## Recipes
 
@@ -221,10 +226,37 @@ print(learners(dex, "Counter"))
 **Diff two GAME_MASTER versions programmatically:**
 
 ```python
-from pogodecode.pokedex import load_pokedex, diff_pokedex
+from pogodecode.pokedex import load_pokedex, diff_pokedex, diff_to_markdown
 report = diff_pokedex(load_pokedex("OLD"), load_pokedex("NEW"))
 print(report["templatesAdded"], report["pokemonChanged"])
+open("CHANGELOG_DATA.md", "w").write(diff_to_markdown(report))   # human changelog
 ```
+
+**Gate a data refresh so bad data never ships (CI pipeline):**
+
+```python
+from pogodecode.pokedex import load_pokedex, export_bundle
+
+dex = load_pokedex("GAME_MASTER")
+health = dex.health_check()           # balance-independent structural assertions
+if not health["ok"]:
+    raise SystemExit(f"GAME_MASTER failed drift-guard: {health['checks']}")
+
+bundle = export_bundle(dex, source_path="GAME_MASTER")
+# bundle["meta"]["version"] is a sha256 your site can cache-bust on
+import json; json.dump(bundle, open("data.json", "w"))
+```
+
+Equivalent on the command line (exits non-zero on failure, perfect for CI):
+
+```bash
+python -m pogodecode.dexcli GAME_MASTER --check        # drift-guard
+python -m pogodecode.dexcli GAME_MASTER --bundle data.json
+```
+
+A turnkey scheduled **GitHub Action** (`.github/workflows/data-refresh.yml`) does
+fetch → `--check` → `--bundle` + changelog → publish a rolling `data-latest`
+release; point it at your source via the `GAME_MASTER_URL` repo variable.
 
 ## Using it from other languages
 

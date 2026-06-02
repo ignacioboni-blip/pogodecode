@@ -186,8 +186,10 @@ python -m pogodecode.dexcli GAME_MASTER --items            # items
 python -m pogodecode.dexcli GAME_MASTER --leagues          # PvP CP caps
 python -m pogodecode.dexcli GAME_MASTER --template COMBAT_SETTINGS
 python -m pogodecode.dexcli GAME_MASTER --search FRIENDSHIP
-python -m pogodecode.dexcli OLD_GAME_MASTER --diff NEW_GAME_MASTER
+python -m pogodecode.dexcli OLD_GAME_MASTER --diff NEW_GAME_MASTER --format md  # changelog
 python -m pogodecode.dexcli GAME_MASTER --export sheets.json
+python -m pogodecode.dexcli GAME_MASTER --check        # drift-guard (CI gate; exit≠0 on bad data)
+python -m pogodecode.dexcli GAME_MASTER --bundle data.json   # versioned, stamped export
 ```
 
 ## How it works (methodology)
@@ -256,6 +258,39 @@ for s in dex.all_sheets():
 The complete **API reference**, **sheet & move schema**, copy-paste **recipes**
 (CSV export, "who learns move X", programmatic diff), and **other-language**
 usage are in → **[docs/INTEGRATION.md](docs/INTEGRATION.md)**.
+
+## Keep a companion site up to date (pipeline)
+
+The decode never crashes on Niantic's updates, but "never crashes" isn't "never
+silently wrong" — if a *mapped* field is renumbered, values can drift without an
+error. So the recommended operating model gates every refresh behind a check:
+
+```
+fetch new GAME_MASTER → --check (drift-guard) → on PASS: --bundle versioned JSON
+                                              → --diff --format md (changelog)
+                                              → publish for your site to pull
+```
+
+- **`--check`** runs balance-independent structural assertions (all move ids
+  resolve, ~no move-less Pokémon, no stat/type outliers, CP multiplier sane, type
+  chart complete) and **exits non-zero** if any trip — so a broken/renumbered
+  GAME_MASTER never reaches your site.
+- **`--bundle`** writes a self-describing JSON: stamped `meta` (tool version,
+  source, a **sha256 `version`** to cache-bust on, timestamp, counts), the health
+  report, and every sheet.
+- **`--diff … --format md`** emits a human changelog (added/removed templates,
+  per-Pokémon stat/type/move changes) so you can show "what changed."
+
+A ready-to-use **scheduled GitHub Action** (`.github/workflows/data-refresh.yml`)
+wires this together: point it at your GAME_MASTER source (a repo variable
+`GAME_MASTER_URL` or a manual run input), and it fetches → guards → publishes the
+versioned JSON + changelog as a rolling `data-latest` release for your site to
+consume. It **publishes nothing if the drift-guard fails.**
+
+> **Reality check.** This powers the *static mechanics* (stats, moves, types, CP,
+> costs, items, leagues) reliably. It **cannot** provide spawns, raids, eggs, or
+> research — that data isn't in GAME_MASTER. See
+> [docs/BUGS.md](docs/BUGS.md#known-limitations-by-design).
 
 ## Build from source
 

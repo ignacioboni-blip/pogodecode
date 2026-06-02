@@ -41,6 +41,21 @@ First public release.
 - Filter by type, sort by stat/CP, compare Pokémon side-by-side, and a generic
   search over every decoded template.
 
+### Keeping data current (pipeline)
+- **Drift-guard** (`dexcli --check`, `Pokedex.health_check()`): balance-independent
+  structural assertions that **exit non-zero** when the data looks wrong (move ids
+  not resolving, Pokémon going move-less, stat/type outliers, bad CP multiplier or
+  type chart) — i.e. exactly how a renumbered mapped field manifests. Use it as a
+  CI gate so a broken GAME_MASTER never ships.
+- **Versioned export** (`dexcli --bundle`, `export_bundle()`): a self-describing
+  JSON with stamped `meta` (tool version, source, a sha256 `version` to cache-bust
+  on, timestamp, counts) + health report + every sheet.
+- **Markdown changelog** (`dexcli --diff … --format md`, `diff_to_markdown()`):
+  human-readable "what changed" between two GAME_MASTER versions.
+- **Scheduled GitHub Action** (`data-refresh.yml`): fetch → drift-guard → versioned
+  bundle + changelog → publish a rolling `data-latest` release; publishes nothing
+  if the guard fails. Point it at your source via the `GAME_MASTER_URL` variable.
+
 ### Packaging
 - One-click Windows build; CI builds standalone binaries for Windows, macOS and
   Linux and attaches them to GitHub Releases on version tags.

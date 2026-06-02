@@ -70,14 +70,45 @@ def main(argv=None) -> int:
     p.add_argument("--template", metavar="ID", help="print one decoded template by id")
     p.add_argument("--search", metavar="TERM", help="list template ids matching TERM")
     p.add_argument("--diff", metavar="OTHER", help="diff this file against another GAME_MASTER/JSON")
+    p.add_argument("--format", choices=("json", "md"), default="json",
+                   help="output format for --diff (json or markdown changelog)")
+    p.add_argument("--check", action="store_true",
+                   help="run the drift-guard; exit non-zero if the data looks broken")
+    p.add_argument("--max-moveless", type=int, default=5,
+                   help="--check: max Pokémon allowed with no fast/charge move (default 5)")
+    p.add_argument("--bundle", metavar="PATH",
+                   help="write a versioned bundle (stamped meta + health + sheets) to PATH")
     args = p.parse_args(argv)
 
     if args.diff:
-        from .pokedex import diff_files
-        print(json.dumps(diff_files(args.input, args.diff), indent=2, ensure_ascii=False))
+        from .pokedex import diff_files, diff_to_markdown
+        report = diff_files(args.input, args.diff)
+        if args.format == "md":
+            print(diff_to_markdown(report))
+        else:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
 
     dex = load_pokedex(args.input)
+
+    if args.check:
+        report = dex.health_check(max_moveless=args.max_moveless)
+        for c in report["checks"]:
+            print(f"  [{'PASS' if c['ok'] else 'FAIL'}] {c['name']:<24} {c['detail']}")
+        ok = report["ok"]
+        print(f"\n{'OK — data looks healthy' if ok else 'FAILED — see above'}",
+              file=sys.stderr)
+        return 0 if ok else 1
+
+    if args.bundle:
+        from .pokedex import export_bundle
+        bundle = export_bundle(dex, source_path=args.input)
+        with open(args.bundle, "w", encoding="utf-8") as fh:
+            json.dump(bundle, fh, ensure_ascii=False, separators=(",", ":"))
+        m = bundle["meta"]
+        print(f"wrote {m['pokemonCount']} sheets to {args.bundle}  "
+              f"(version {m['version'][:12]}, health {'ok' if m['healthOk'] else 'FAILED'})")
+        return 0 if bundle["meta"]["healthOk"] else 1
 
     if args.weather:
         print(json.dumps(dex.weather_summary(), indent=2, ensure_ascii=False)); return 0

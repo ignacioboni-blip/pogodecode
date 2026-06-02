@@ -22,6 +22,7 @@ import re
 import struct
 from typing import Any, Dict, List, Optional
 
+from . import __version__
 from .gamemaster import decode_game_master
 
 __all__ = ["Pokedex", "load_pokedex", "diff_pokedex", "diff_files"]
@@ -544,6 +545,43 @@ class Pokedex:
             "cpMultiplierLevels": len(self.cp_multipliers),
         }
 
+    def health_check(self, max_moveless: int = 5) -> Dict[str, Any]:
+        """A pass/fail drift-guard for use as a CI gate.
+
+        The schema-free decode never crashes, but if Niantic renumbers a mapped
+        field the *interpretation* can go silently wrong. These checks are
+        balance-independent structural assertions: if a movepool / stat / type /
+        CP field drifts, one of them trips. Returns ``{"ok": bool, "checks": [...]}``.
+        """
+        v = self.validate()
+        cpm40 = self.cp_multiplier_for_level(40) or 0.0
+        checks = [
+            ("pokemon_present", v["pokemonChecked"] > 100,
+             f"{v['pokemonChecked']} Pokémon"),
+            ("moves_present", v["movesChecked"] > 50,
+             f"{v['movesChecked']} moves"),
+            ("all_move_ids_resolve", v["unresolvedMoveIds"]["count"] == 0,
+             f"{v['unresolvedMoveIds']['count']} unresolved"),
+            ("few_moveless_pokemon",
+             v["pokemonWithoutFastMove"]["count"] <= max_moveless
+             and v["pokemonWithoutChargeMove"]["count"] <= max_moveless,
+             f"fast={v['pokemonWithoutFastMove']['count']}, "
+             f"charge={v['pokemonWithoutChargeMove']['count']} (max {max_moveless})"),
+            ("no_stat_outliers", v["statOutliers"]["count"] == 0,
+             f"{v['statOutliers']['count']} outliers"),
+            ("no_invalid_types", v["invalidTypes"]["count"] == 0,
+             f"{v['invalidTypes']['count']} invalid"),
+            ("no_zero_duration_moves", v["movesWithZeroDuration"]["count"] == 0,
+             f"{v['movesWithZeroDuration']['count']} zero-duration"),
+            ("type_chart_complete", v["typeChartAttackers"] >= 18,
+             f"{v['typeChartAttackers']} attacker types"),
+            ("cp_multiplier_sane", 0.79 <= cpm40 <= 0.7906 and v["cpMultiplierLevels"] >= 79,
+             f"CPM(40)={cpm40:.5f}, {v['cpMultiplierLevels']} levels"),
+        ]
+        results = [{"name": n, "ok": bool(ok), "detail": d} for n, ok, d in checks]
+        return {"ok": all(r["ok"] for r in results), "source": self.source,
+                "checks": results}
+
     # -- items / leagues / friendship / weather -----------------------------
     def items(self) -> List[Dict[str, Any]]:
         out = []
@@ -845,3 +883,77 @@ def diff_pokedex(old: "Pokedex", new: "Pokedex") -> Dict[str, Any]:
 def diff_files(old_path: str, new_path: str) -> Dict[str, Any]:
     """Convenience: load two GAME_MASTER files (or JSON exports) and diff them."""
     return diff_pokedex(load_pokedex(old_path), load_pokedex(new_path))
+
+
+def diff_to_markdown(report: Dict[str, Any]) -> str:
+    """Render a diff report (from :func:`diff_pokedex`) as a human changelog."""
+    out = [f"# GAME_MASTER changes: `{report['old']}` → `{report['new']}`", ""]
+    ta, tr = report["templatesAdded"], report["templatesRemoved"]
+    pc = report["pokemonChanged"]
+    out.append(f"- **{ta['count']}** templates added, **{tr['count']}** removed, "
+               f"**{pc['count']}** Pokémon changed")
+    out.append("")
+    if ta["count"]:
+        out.append("## Added templates")
+        out += [f"- `{t}`" for t in ta["sample"]]
+        if ta["count"] > len(ta["sample"]):
+            out.append(f"- … and {ta['count'] - len(ta['sample'])} more")
+        out.append("")
+    if tr["count"]:
+        out.append("## Removed templates")
+        out += [f"- `{t}`" for t in tr["sample"]]
+        out.append("")
+    if pc["count"]:
+        out.append("## Changed Pokémon")
+        for entry in pc["details"]:
+            bits = []
+            for field, ch in entry["changes"].items():
+                if field == "moves":
+                    if ch.get("added"):
+                        bits.append("moves +" + ", ".join(ch["added"]))
+                    if ch.get("removed"):
+                        bits.append("moves −" + ", ".join(ch["removed"]))
+                else:
+                    bits.append(f"{field}: {ch['old']} → {ch['new']}")
+            out.append(f"- **{entry['name']}** (`{entry['templateId']}`): "
+                       + "; ".join(bits))
+        out.append("")
+    return "\n".join(out)
+
+
+def export_bundle(dex: "Pokedex", source_path: Optional[str] = None) -> Dict[str, Any]:
+    """A versioned, self-describing export: stamped metadata + a health summary
+    + every Pokémon sheet. Designed for a site/pipeline to cache-bust on.
+
+    ``version`` is a stable content key (sha256 of the source file when given,
+    else of the decoded sheets) so consumers can detect "did anything change".
+    """
+    import datetime
+    import hashlib
+    import json as _json
+
+    sheets = dex.all_sheets()
+    if source_path and os.path.isfile(source_path):
+        with open(source_path, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        version_basis = "source-file"
+    else:
+        payload = _json.dumps(sheets, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()
+        version_basis = "decoded-sheets"
+    health = dex.health_check()
+    return {
+        "meta": {
+            "tool": "pogodecode",
+            "toolVersion": __version__,
+            "source": dex.source,
+            "version": digest,
+            "versionBasis": version_basis,
+            "generatedAt": datetime.datetime.now(datetime.timezone.utc)
+            .isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "pokemonCount": len(sheets),
+            "healthOk": health["ok"],
+        },
+        "health": health,
+        "sheets": sheets,
+    }

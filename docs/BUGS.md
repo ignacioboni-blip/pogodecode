@@ -80,8 +80,12 @@ to schema-free decoding.
   layer recovers names for the fields it maps; everything else stays numeric.
 - **Field numbers can change.** When Niantic renumbers a setting, the schema-free
   decode still succeeds, but a mapped value in `pokedex.py` may need its constant
-  updated. This is a one-line change, not a rewrite — and `validate()` plus the
-  reference tests are designed to catch it.
+  updated. This is a one-line change, not a rewrite — and the **drift-guard**
+  (`--check` / `dex.health_check()`) plus the reference tests are designed to
+  catch it *before* the data ships. Run `--check` as a CI gate on every refresh;
+  it exits non-zero if move ids stop resolving, Pokémon go move-less, stats/types
+  fall out of range, or the CP multiplier / type chart look wrong — all of which
+  are exactly how a renumbered mapped field manifests.
 - **Mewtwo has no Counter.** Worth stating because it comes up: Mewtwo does not
   learn Counter in the data (its fast moves are Confusion / Psycho Cut). That's
   correct, not a gap.
