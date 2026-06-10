@@ -1,0 +1,108 @@
+# GAME_MASTER changes: `8bfe154b-v2_GAME_MASTER` → `ee75db6f-v2_GAME_MASTER`
+
+- **705** templates added, **551** removed, **47** Pokémon changed
+
+## Added templates
+- `BADGE_EVENT_0199`
+- `BADGE_EVENT_0202`
+- `BADGE_EVENT_0203`
+- `COMBAT_LEAGUE_VS_SEEKER_GREAT_CHAMPIONSHIPS_LEGACY`
+- `COMBAT_V0590_MOVE_GLAIVE_RUSH`
+- `EVENT_PASS_AMER2026_EVENT`
+- `EVENT_PASS_AMER2026_EVENT_10_FREE`
+- `EVENT_PASS_AMER2026_EVENT_10_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_11_FREE`
+- `EVENT_PASS_AMER2026_EVENT_11_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_12_FREE`
+- `EVENT_PASS_AMER2026_EVENT_12_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_13_FREE`
+- `EVENT_PASS_AMER2026_EVENT_13_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_14_FREE`
+- `EVENT_PASS_AMER2026_EVENT_14_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_15_FREE`
+- `EVENT_PASS_AMER2026_EVENT_15_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_16_FREE`
+- `EVENT_PASS_AMER2026_EVENT_16_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_17_FREE`
+- `EVENT_PASS_AMER2026_EVENT_17_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_18_FREE`
+- `EVENT_PASS_AMER2026_EVENT_18_PREMIUM`
+- `EVENT_PASS_AMER2026_EVENT_19_FREE`
+- … and 680 more
+
+## Removed templates
+- `EVENT_PASS_BLANCHE2026_EVENT`
+- `EVENT_PASS_BLANCHE2026_EVENT_10_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_10_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_11_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_11_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_12_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_12_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_13_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_13_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_14_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_14_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_15_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_15_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_16_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_16_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_17_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_17_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_18_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_18_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_19_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_19_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_1_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_1_PREMIUM`
+- `EVENT_PASS_BLANCHE2026_EVENT_20_FREE`
+- `EVENT_PASS_BLANCHE2026_EVENT_20_PREMIUM`
+
+## Changed Pokémon
+- **Pidgeot** (`V0018_POKEMON_PIDGEOT`): moves +Twister
+- **Mega Pidgeot** (`V0018_POKEMON_PIDGEOT::TEMPEVO::1`): moves +Twister
+- **Pidgeot Normal** (`V0018_POKEMON_PIDGEOT_NORMAL`): moves +Twister
+- **Mega Pidgeot Normal** (`V0018_POKEMON_PIDGEOT_NORMAL::TEMPEVO::1`): moves +Twister
+- **Starmie** (`V0121_POKEMON_STARMIE`): moves +Aqua Jet
+- **Starmie Normal** (`V0121_POKEMON_STARMIE_NORMAL`): moves +Aqua Jet
+- **Kabutops** (`V0141_POKEMON_KABUTOPS`): moves +Aqua Jet
+- **Kabutops Normal** (`V0141_POKEMON_KABUTOPS_NORMAL`): moves +Aqua Jet
+- **Zapdos Galarian** (`V0145_POKEMON_ZAPDOS_GALARIAN`): moves +Low Kick
+- **Ledian** (`V0166_POKEMON_LEDIAN`): moves +Acrobatics, Rollout
+- **Ledian Normal** (`V0166_POKEMON_LEDIAN_NORMAL`): moves +Acrobatics, Rollout
+- **Xatu** (`V0178_POKEMON_XATU`): moves +Shadow Ball
+- **Xatu Normal** (`V0178_POKEMON_XATU_NORMAL`): moves +Shadow Ball
+- **Qwilfish** (`V0211_POKEMON_QWILFISH`): moves +Shadow Ball
+- **Qwilfish Normal** (`V0211_POKEMON_QWILFISH_NORMAL`): moves +Shadow Ball
+- **Mantine** (`V0226_POKEMON_MANTINE`): moves +Twister
+- **Mantine Normal** (`V0226_POKEMON_MANTINE_NORMAL`): moves +Twister
+- **Kingdra** (`V0230_POKEMON_KINGDRA`): moves +Surf
+- **Kingdra Normal** (`V0230_POKEMON_KINGDRA_NORMAL`): moves +Surf
+- **Kecleon** (`V0352_POKEMON_KECLEON`): moves +Dynamic Punch, Thunder Punch
+- **Kecleon Normal** (`V0352_POKEMON_KECLEON_NORMAL`): moves +Dynamic Punch, Thunder Punch
+- **Lopunny** (`V0428_POKEMON_LOPUNNY`): moves +Shadow Ball, Thunder Punch
+- **Mega Lopunny** (`V0428_POKEMON_LOPUNNY::TEMPEVO::1`): moves +Shadow Ball, Thunder Punch
+- **Lopunny Normal** (`V0428_POKEMON_LOPUNNY_NORMAL`): moves +Shadow Ball, Thunder Punch
+- **Mega Lopunny Normal** (`V0428_POKEMON_LOPUNNY_NORMAL::TEMPEVO::1`): moves +Shadow Ball, Thunder Punch
+- **Lumineon** (`V0457_POKEMON_LUMINEON`): moves +Gust
+- **Lumineon Normal** (`V0457_POKEMON_LUMINEON_NORMAL`): moves +Gust
+- **Rhyperior** (`V0464_POKEMON_RHYPERIOR`): moves +Drill Run
+- **Rhyperior Normal** (`V0464_POKEMON_RHYPERIOR_NORMAL`): moves +Drill Run
+- **Gigalith** (`V0526_POKEMON_GIGALITH`): moves +Lock On
+- **Gigalith Normal** (`V0526_POKEMON_GIGALITH_NORMAL`): moves +Lock On
+- **Conkeldurr** (`V0534_POKEMON_CONKELDURR`): moves +Force Palm
+- **Conkeldurr Normal** (`V0534_POKEMON_CONKELDURR_NORMAL`): moves +Force Palm
+- **Seismitoad** (`V0537_POKEMON_SEISMITOAD`): moves +Icy Wind
+- **Seismitoad Normal** (`V0537_POKEMON_SEISMITOAD_NORMAL`): moves +Icy Wind
+- **Swanna** (`V0581_POKEMON_SWANNA`): moves +Aqua Jet, Gust
+- **Swanna Normal** (`V0581_POKEMON_SWANNA_NORMAL`): moves +Aqua Jet, Gust
+- **Aromatisse** (`V0683_POKEMON_AROMATISSE`): moves +Fairy Wind
+- **Aromatisse Normal** (`V0683_POKEMON_AROMATISSE_NORMAL`): moves +Fairy Wind
+- **Sylveon** (`V0700_POKEMON_SYLVEON`): moves +Fairy Wind, Shadow Ball
+- **Sylveon Normal** (`V0700_POKEMON_SYLVEON_NORMAL`): moves +Fairy Wind, Shadow Ball
+- **Sliggoo** (`V0705_POKEMON_SLIGGOO`): moves +Body Slam, Dragon Breath
+- **Sliggoo Normal** (`V0705_POKEMON_SLIGGOO_NORMAL`): moves +Body Slam, Dragon Breath
+- **Melmetal** (`V0809_POKEMON_MELMETAL`): moves +Dynamic Punch
+- **Melmetal Normal** (`V0809_POKEMON_MELMETAL_NORMAL`): moves +Dynamic Punch
+- **Quaquaval** (`V0914_POKEMON_QUAQUAVAL`): moves +Low Kick
+- **Quaquaval Normal** (`V0914_POKEMON_QUAQUAVAL_NORMAL`): moves +Low Kick
+
