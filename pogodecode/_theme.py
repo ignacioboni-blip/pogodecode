@@ -96,12 +96,19 @@ def _register_one(path):
 
 
 def register_fonts():
-    """Register every bundled TTF. Returns the number registered (0 on failure)."""
+    """Register every bundled TTF (once per process). Returns count registered."""
+    global _REGISTERED
+    if _REGISTERED is not None:
+        return _REGISTERED
     count = 0
     for ttf in sorted(glob.glob(os.path.join(_font_dir(), "*.ttf"))):
         if _register_one(ttf):
             count += 1
+    _REGISTERED = count
     return count
+
+
+_REGISTERED = None
 
 
 def _family_available(root, family):
@@ -141,16 +148,16 @@ def apply_theme(root, dark=False, font=None):
     p = PALETTES["dark" if dark else "light"]
 
     if ui:
+        # Change only the *family* of the standard named fonts, never the size --
+        # each platform keeps its native point size (macOS 13, Windows 9, …), so
+        # the UI doesn't shrink on Mac. TkFixedFont is left as the platform
+        # monospace so the aligned text panes (type chart, JSON) stay aligned.
         for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont",
                      "TkTooltipFont", "TkIconFont", "TkSmallCaptionFont", "TkCaptionFont"):
             try:
                 tkfont.nametofont(name).configure(family=ui)
             except Exception:
                 pass
-        try:
-            root.option_add("*Font", (ui, 10))
-        except Exception:
-            pass
 
     try:
         st = ttk.Style(root)

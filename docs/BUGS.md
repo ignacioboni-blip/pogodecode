@@ -96,6 +96,23 @@ telling you which file to open instead; the viewer shows that guidance rather
 than a traceback. (Sheets/bundles can't be loaded back by design — they don't
 contain the raw templates the tabs need.)
 
+### <a id="b7"></a>B7 — Slower + smaller fonts on macOS
+
+**Symptom.** On macOS the app ran noticeably slower and the UI fonts looked
+smaller than native.
+
+**Cause.** Two things: (1) the bundled Google Sans Flex was a 4 MB **variable**
+font, and macOS CoreText resolves the variable instance on every text draw —
+much heavier than a static font; (2) the theme forced `option_add("*Font", …, 10)`
+(10 pt), which is fine on Windows (native ~9 pt) but shrinks the UI on macOS
+(native 13 pt).
+
+**Fix.** The variable font is replaced with **static Regular + Bold instances**
+(~126 KB each, same "Google Sans Flex" family) that render at native speed; fonts
+are registered **once** per process; and the theme now changes only the font
+*family*, **keeping each platform's native point size** (so the UI no longer
+shrinks on Mac and the monospace text panes stay aligned).
+
 ## Known limitations (by design)
 
 These are **not** bugs — the data simply isn't in `GAME_MASTER`, or is inherent

@@ -12,8 +12,9 @@ it decodes a GAME_MASTER file the user already possesses. See docs/LEGAL.md.
 Third-party components
 --------------------------------------------------------------------------------
 
-Google Sans Flex
-  Files:   pogodecode/assets/fonts/GoogleSansFlex.ttf
+Google Sans Flex  (static Regular + Bold instances of the variable font)
+  Files:   pogodecode/assets/fonts/GoogleSansFlex-Regular.ttf
+           pogodecode/assets/fonts/GoogleSansFlex-Bold.ttf
   License: SIL Open Font License, Version 1.1
   Text:    pogodecode/assets/fonts/OFL-GoogleSansFlex.txt
 

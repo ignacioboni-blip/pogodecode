@@ -21,7 +21,7 @@ def test_bundled_fonts_present_and_theme_imports_headlessly():
     from pogodecode import _theme  # must not import tkinter at module load
     d = _theme._font_dir()
     ttfs = {os.path.basename(p) for p in glob.glob(os.path.join(d, "*.ttf"))}
-    assert "GoogleSansFlex.ttf" in ttfs
+    assert any(n.startswith("GoogleSansFlex") for n in ttfs)
     assert any(n.startswith("Quicksand") for n in ttfs)
     # OFL license texts must travel with the fonts.
     assert glob.glob(os.path.join(d, "OFL-*.txt"))

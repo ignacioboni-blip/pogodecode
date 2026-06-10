@@ -60,9 +60,12 @@ First public release.
   if the guard fails. Point it at your source via the `GAME_MASTER_URL` variable.
 
 ### Look & feel
-- **Embedded fonts** — the GUI ships with **Google Sans Flex** (default UI font)
-  and **Quicksand** (display), both SIL OFL and bundled in the app; registered at
-  runtime on Windows/macOS/Linux with graceful fallback to the system font.
+- **Embedded fonts** — the GUI ships with **Google Sans Flex** (default UI font,
+  bundled as lightweight static Regular/Bold instances ~126 KB each) and
+  **Quicksand** (display), both SIL OFL; registered once per process on
+  Windows/macOS/Linux with graceful fallback. The theme keeps each platform's
+  native point size, so the UI doesn't shrink on macOS (and the static font
+  renders much faster there than the original 4 MB variable font).
 - **Font picker** — **View → Choose font…** lets you use any font installed on
   your machine (searchable, with live preview); remembered across sessions.
 - **Self-contained light & dark theme** — a pure-ttk theme (styled widgets only,
