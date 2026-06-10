@@ -29,6 +29,29 @@ def test_bundled_fonts_present_and_theme_imports_headlessly():
     assert set(_theme.PALETTES) == {"light", "dark"}
 
 
+def test_load_pokedex_rejects_sheets_and_bundle_json_with_guidance(tmp_path):
+    """Regression: opening a sheets export (a JSON list) crashed with
+    AttributeError('list' object has no attribute 'get'). Both the sheets list
+    and the bundle dict must raise a helpful ValueError instead."""
+    import json
+    from pogodecode.pokedex import load_pokedex
+
+    sheets = tmp_path / "sheets.json"
+    sheets.write_text(json.dumps([{"templateId": "V0001_POKEMON_BULBASAUR"}]))
+    with pytest.raises(ValueError, match="sheets.*export"):
+        load_pokedex(str(sheets))
+
+    bundle = tmp_path / "bundle.json"
+    bundle.write_text(json.dumps({"meta": {"version": "x"}, "health": {}, "sheets": []}))
+    with pytest.raises(ValueError, match="bundle.*export"):
+        load_pokedex(str(bundle))
+
+    other = tmp_path / "other.json"
+    other.write_text(json.dumps({"foo": 1}))
+    with pytest.raises(ValueError, match="templatesById"):
+        load_pokedex(str(other))
+
+
 def test_sentinel_power_moves_flagged_as_placeholder():
     """Niantic ships OHKO moves (Horn Drill 9000, Fissure 9001) with a sentinel
     power; they must be flagged, not shown as real moves. No fixture needed."""

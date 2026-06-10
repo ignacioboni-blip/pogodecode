@@ -272,6 +272,9 @@ class ViewerApp:
     def _load_worker(self, path: str) -> None:
         try:
             self._events.put(("loaded", load_pokedex(path)))
+        except ValueError as exc:
+            # Expected "wrong kind of file" cases -- show the guidance, not a traceback.
+            self._events.put(("error", str(exc)))
         except Exception:  # noqa: BLE001
             self._events.put(("error", traceback.format_exc()))
 

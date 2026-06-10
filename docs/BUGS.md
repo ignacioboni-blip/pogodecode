@@ -79,6 +79,23 @@ flagged `"placeholder": true`, annotated `(unreleased)` in the move lists, and
 counted under `placeholderMoves` in `validate()` — so they don't pollute a
 verifier or a live site. Filter them with `m["placeholder"]`.
 
+### <a id="b6"></a>B6 — Crash when opening a sheets/bundle JSON in the viewer
+
+**Symptom.** Opening a JSON file in the Pokédex viewer crashed with
+`AttributeError: 'list' object has no attribute 'get'` (reported on macOS, but
+platform-independent).
+
+**Cause.** The viewer accepts a raw `GAME_MASTER` *or* the decoder's
+`game_master.json` (which has `templatesById`). The tool's *other* JSON outputs —
+the sheets export (`--export`, a JSON list) and the versioned bundle
+(`--bundle`) — contain derived sheets, not raw templates, and `load_pokedex`
+assumed a dict and crashed on the list.
+
+**Fix.** `load_pokedex` now detects both formats and raises a clear message
+telling you which file to open instead; the viewer shows that guidance rather
+than a traceback. (Sheets/bundles can't be loaded back by design — they don't
+contain the raw templates the tabs need.)
+
 ## Known limitations (by design)
 
 These are **not** bugs — the data simply isn't in `GAME_MASTER`, or is inherent

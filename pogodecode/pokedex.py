@@ -846,8 +846,22 @@ def load_pokedex(path: str) -> Pokedex:
     if looks_json:
         with open(path, "r", encoding="utf-8") as fh:
             doc = json.load(fh)
+        # Friendly guidance for the other JSON files this tool produces, which
+        # contain derived sheets rather than the raw templates needed here.
+        if isinstance(doc, list):
+            raise ValueError(
+                "This JSON is a Pokédex *sheets* export (a list of Pokémon), which "
+                "cannot be loaded back. Open the raw GAME_MASTER file, or the "
+                "decoder's output (game_master.json, which has 'templatesById').")
+        if not isinstance(doc, dict):
+            raise ValueError("Unrecognized JSON file (expected a pogodecode decode).")
         by_id = doc.get("templatesById")
         if by_id is None:
+            if "sheets" in doc and "meta" in doc:
+                raise ValueError(
+                    "This JSON is a versioned *bundle* export (meta + sheets), which "
+                    "cannot be loaded back. Open the raw GAME_MASTER file, or the "
+                    "decoder's output (game_master.json, which has 'templatesById').")
             raise ValueError("JSON file has no 'templatesById' (not a pogodecode export)")
     else:
         by_id = decode_game_master(path)["templatesById"]
