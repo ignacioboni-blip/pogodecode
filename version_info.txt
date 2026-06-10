@@ -2,8 +2,8 @@
 # PyInstaller Windows version resource for the built .exe files.
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),
-    prodvers=(1, 0, 0, 0),
+    filevers=(1, 0, 1, 0),
+    prodvers=(1, 0, 1, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -19,11 +19,11 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'pogodecode contributors'),
             StringStruct('FileDescription', 'Pokémon GO GAME_MASTER decoder & Pokédex viewer'),
-            StringStruct('FileVersion', '1.0.0'),
+            StringStruct('FileVersion', '1.0.1'),
             StringStruct('InternalName', 'pogodecode'),
             StringStruct('LegalCopyright', 'MIT License. Not affiliated with Niantic/Nintendo.'),
             StringStruct('ProductName', 'PoGo GAME_MASTER Tools'),
-            StringStruct('ProductVersion', '1.0.0'),
+            StringStruct('ProductVersion', '1.0.1'),
           ])
       ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

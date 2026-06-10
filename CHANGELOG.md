@@ -3,6 +3,30 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-06-10
+
+Bug-fix release.
+
+### Fixed
+- **macOS performance & font size.** The bundled Google Sans Flex is now a
+  lightweight **static** Regular/Bold instance (~126 KB each) instead of a 4 MB
+  variable font — macOS CoreText resolved the variable instance on every text
+  draw, which made the app render noticeably slower. The theme now also keeps
+  each platform's **native point size** (it no longer forces 10 pt), so the UI
+  no longer looks small on macOS. Fonts are registered once per process.
+  ([BUGS B7](docs/BUGS.md#b7))
+- **Viewer crash on the wrong JSON.** Opening a Pokédex *sheets* export
+  (`--export`, a JSON list) or a *bundle* (`--bundle`) in the viewer crashed with
+  `AttributeError: 'list' object has no attribute 'get'`. `load_pokedex` now
+  detects these and shows a clear message pointing at the raw `GAME_MASTER` or the
+  decoder's `game_master.json`. ([BUGS B6](docs/BUGS.md#b6))
+
+### Verified
+- Decodes the latest `GAME_MASTER` cleanly (drift-guard green): **no CP-formula
+  change**; the update is event-pass rotation plus one new move (Glaive Rush) and
+  additive movepool updates for 47 Pokémon. See
+  [docs/updates/](docs/updates/CHANGELOG-ee75db6f.md).
+
 ## [1.0.0] - 2026-05-31
 
 First public release.
