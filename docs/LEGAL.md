@@ -73,13 +73,9 @@ damages, or other liability arising from the software or its use.
 
 ## 7. Third-party components
 
-- **Bundled fonts** — *Google Sans Flex* and *Quicksand* are included under the
-  **SIL Open Font License 1.1**. Their license texts ship alongside them in
-  [`pogodecode/assets/fonts/`](../pogodecode/assets/fonts/). The OFL permits
-  bundling and redistribution; the fonts are not sold and are not the reserved
-  name of this project.
-
-See [NOTICE](../NOTICE) for the consolidated attribution list.
+The runtime depends only on the **Python standard library**, and the apps use the
+operating system's **native fonts** (none are bundled or redistributed). See
+[NOTICE](../NOTICE).
 
 ## 8. Rights holders — takedown / contact
 

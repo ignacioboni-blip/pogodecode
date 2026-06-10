@@ -64,10 +64,15 @@ class ViewerApp:
         data = _config.load(); data["dark"] = dark; _config.save(data)
 
     def _choose_font(self) -> None:
-        cur = _config.load().get("font") or _theme.UI_FONT
+        cur = _config.load().get("font") or ""
 
         def apply(family):
-            data = _config.load(); data["font"] = family; _config.save(data)
+            data = _config.load()
+            if family:
+                data["font"] = family
+            else:
+                data.pop("font", None)   # "Use system default"
+            _config.save(data)
             _theme.apply_theme(self.root, dark=self._dark.get(), font=family)
         _theme.choose_font(self.root, cur, apply)
 
@@ -368,6 +373,22 @@ class ViewerApp:
         if self.dex:
             tbl = self.dex.cp_table(bs["attack"], bs["defense"], bs["stamina"], levels=[20, 30, 40, 50])
             lines.append(("  CP @ L20/30/40/50: " + " / ".join(str(r["cp"]) for r in tbl), None))
+        enc = s.get("encounterCp") or {}
+        if enc.get("raid"):
+            r, w = enc["raid"], enc["weatherBoosted"]
+            lines.append((f"  Catch CP: raid L20 {r['min']}–{r['max']}   "
+                          f"weather L25 {w['min']}–{w['max']}  (10/10/10–15/15/15)", None))
+        # PvP rank-1 IVs per league (skip Megas -- not used in PvP).
+        if self.dex and not s.get("isMega"):
+            ranks = self.dex.pvp_ranks(s["templateId"], leagues=("little", "great", "ultra"))
+            lines += [("", None), ("PvP — best (rank-1) IVs", "h2")]
+            for lg in ("little", "great", "ultra"):
+                info = ranks.get(lg, {})
+                if info.get("viable"):
+                    b = info["rank1"]
+                    lines.append((f"  {lg.title():<6} {b['ivs']:<8} L{b['level']}  CP {b['cp']}", None))
+                else:
+                    lines.append((f"  {lg.title():<6} — (can't fit the cap)", None))
         lines += [("", None), ("Physical / encounter", "h2"),
                   (f"  Height {s.get('heightM','?')} m   Weight {s.get('weightKg','?')} kg", None)]
         if s.get("buddyDistanceKm") is not None:

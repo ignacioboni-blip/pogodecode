@@ -27,6 +27,11 @@ def _format_sheet(s: dict) -> str:
     if s.get("maxCpLevel40") is not None:
         lines.append(f"  Max CP:   L40 {s['maxCpLevel40']}  /  L50 {s.get('maxCpLevel50','?')}"
                      f"  /  L51 best-buddy {s.get('maxCpLevel51BestBuddy','?')}  (perfect IV)")
+    enc = s.get("encounterCp") or {}
+    if enc.get("raid"):
+        r, w = enc["raid"], enc["weatherBoosted"]
+        lines.append(f"  Catch CP: raid L20 {r['min']}–{r['max']}  /  "
+                     f"weather L25 {w['min']}–{w['max']}  (10/10/10–15/15/15)")
     lines.append(f"  Size:     {s.get('heightM','?')} m / {s.get('weightKg','?')} kg")
     if s.get("baseCaptureRate") is not None:
         lines.append(f"  Capture:  {s['baseCaptureRate']*100:.1f}%")
@@ -55,6 +60,67 @@ def _format_sheet(s: dict) -> str:
     return "\n".join(lines)
 
 
+def _leagues_for(arg):
+    return ("little", "great", "ultra", "master") if arg == "all" else (arg,)
+
+
+def _pvp(dex, args) -> int:
+    if not args.name:
+        print("--pvp needs --name to pick a Pokémon, e.g. --name AZUMARILL", file=sys.stderr)
+        return 2
+    keys = [k for k in dex.pokemon_keys()
+            if args.name.upper() in k.upper() and "::TEMPEVO::" not in k]
+    if not keys:
+        print("no matching Pokémon", file=sys.stderr)
+        return 1
+    leagues = _leagues_for(args.league)
+    iv = None
+    if args.iv:
+        try:
+            iv = tuple(int(x) for x in args.iv.split("/"))
+            assert len(iv) == 3 and all(0 <= v <= 15 for v in iv)
+        except Exception:
+            print("--iv must look like 0/15/15 (values 0-15)", file=sys.stderr)
+            return 2
+    for key in keys[:25]:
+        s = dex.sheet(key)
+        print(f"#{s['dexNumber']:04d}  {s['name']}    [{key}]")
+        for lg in leagues:
+            cap = "uncapped" if lg == "master" else f"CP≤{dex.pvp_ranks(key, (lg,))[lg]['capCp']}"
+            if iv:
+                r = dex.pvp_rank_of(key, lg, *iv)
+                if not r or not r.get("viable"):
+                    print(f"  {lg.title():<7} {cap}: {args.iv} can't fit this cap")
+                else:
+                    print(f"  {lg.title():<7} {cap}: {r['ivs']} = rank {r['rank']}/{r['of']} "
+                          f"({r['percent']}%)  L{r['level']}  CP {r['cp']}")
+            else:
+                info = dex.pvp_ranks(key, (lg,))[lg]
+                if not info.get("viable"):
+                    print(f"  {lg.title():<7} {cap}: —")
+                else:
+                    b = info["rank1"]
+                    print(f"  {lg.title():<7} {cap}: rank-1 IVs {b['ivs']}  L{b['level']}  "
+                          f"CP {b['cp']}  (stat product {b['statProduct']:,})")
+        print()
+    return 0
+
+
+def _write_csv(dex, path) -> None:
+    import csv
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["dex", "name", "templateId", "type1", "type2", "atk", "def",
+                    "sta", "cp40", "cp50", "raidCpMin", "raidCpMax", "captureRate"])
+        for s in dex.all_sheets():
+            b, t = s["baseStats"], (s["types"] + ["", ""])[:2]
+            raid = (s.get("encounterCp") or {}).get("raid", {})
+            w.writerow([s["dexNumber"], s["name"], s["templateId"], t[0], t[1],
+                        b["attack"], b["defense"], b["stamina"],
+                        s.get("maxCpLevel40"), s.get("maxCpLevel50"),
+                        raid.get("min"), raid.get("max"), s.get("baseCaptureRate")])
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="pogodex", description="Pokémon GO GAME_MASTER info sheets.")
     p.add_argument("--version", action="version", version=f"pogodex {__version__}")
@@ -76,6 +142,17 @@ def main(argv=None) -> int:
                    help="run the drift-guard; exit non-zero if the data looks broken")
     p.add_argument("--max-moveless", type=int, default=5,
                    help="--check: max Pokémon allowed with no fast/charge move (default 5)")
+    p.add_argument("--pvp", action="store_true",
+                   help="PvP IV analysis for --name Pokémon (rank-1 per league)")
+    p.add_argument("--iv", metavar="A/D/S",
+                   help="with --pvp: rank a specific IV spread, e.g. 0/15/15")
+    p.add_argument("--league", default="all",
+                   choices=("all", "little", "great", "ultra", "master"),
+                   help="with --pvp: which league(s) to analyse (default all)")
+    p.add_argument("--learners", metavar="MOVE",
+                   help="list Pokémon that can learn a move (name substring)")
+    p.add_argument("--csv", metavar="PATH",
+                   help="write a CSV of every Pokémon (dex, name, types, stats, CP, catch CP)")
     p.add_argument("--bundle", metavar="PATH",
                    help="write a versioned bundle (stamped meta + health + sheets) to PATH")
     args = p.parse_args(argv)
@@ -90,6 +167,22 @@ def main(argv=None) -> int:
         return 0
 
     dex = load_pokedex(args.input)
+
+    if args.learners:
+        hits = dex.learners(args.learners)
+        for h in hits:
+            print(f"{h['name']:<24} {h['templateId']:<32} ({', '.join(h['via'])})")
+        print(f"\n{len(hits)} Pokémon can learn a move matching '{args.learners}'",
+              file=sys.stderr)
+        return 0 if hits else 1
+
+    if args.csv:
+        _write_csv(dex, args.csv)
+        print(f"wrote {len(dex.pokemon_keys())} rows to {args.csv}")
+        return 0
+
+    if args.pvp:
+        return _pvp(dex, args)
 
     if args.check:
         report = dex.health_check(max_moveless=args.max_moveless)

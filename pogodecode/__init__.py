@@ -16,7 +16,7 @@ from typing import Any
 from .gamemaster import DecodeResult, decode_game_master
 from .protobuf_decoder import ProtobufDecodeError, decode_message
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 __all__ = [
     "decode_game_master",

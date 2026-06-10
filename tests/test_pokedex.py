@@ -13,20 +13,17 @@ from pogodecode.pokedex import (  # noqa: E402
 )
 
 
-def test_bundled_fonts_present_and_theme_imports_headlessly():
-    """The UI fonts must ship with the package and the theme module must import
-    without Tk (so the CLI/library stay headless-safe)."""
-    import glob
+def test_theme_imports_headlessly_and_bundles_no_fonts():
+    """The theme module must import without Tk (so the CLI/library stay
+    headless-safe), and no fonts should be bundled (system fonts are used)."""
     import os
     from pogodecode import _theme  # must not import tkinter at module load
-    d = _theme._font_dir()
-    ttfs = {os.path.basename(p) for p in glob.glob(os.path.join(d, "*.ttf"))}
-    assert any(n.startswith("GoogleSansFlex") for n in ttfs)
-    assert any(n.startswith("Quicksand") for n in ttfs)
-    # OFL license texts must travel with the fonts.
-    assert glob.glob(os.path.join(d, "OFL-*.txt"))
-    assert _theme.UI_FONT == "Google Sans Flex"
     assert set(_theme.PALETTES) == {"light", "dark"}
+    # No font assets shipped, and no font-registration API remains.
+    assert not os.path.isdir(os.path.join(os.path.dirname(_theme.__file__),
+                                          "assets", "fonts"))
+    assert not hasattr(_theme, "register_fonts")
+    assert not hasattr(_theme, "UI_FONT")
 
 
 def test_load_pokedex_rejects_sheets_and_bundle_json_with_guidance(tmp_path):
@@ -374,6 +371,37 @@ def test_real_file_form_and_mega_required_moves():
     assert "Secret Sword" in required("V0647_POKEMON_KELDEO_RESOLUTE")
     # A normal Pokemon has no signature-move section (no false positives).
     assert dex.sheet("V0006_POKEMON_CHARIZARD")["requiredMoves"] == []
+
+
+@pytest.mark.skipif(_real() is None, reason="no real GAME_MASTER file available")
+def test_real_file_pvp_and_encounter_cp():
+    from pogodecode.pokedex import load_pokedex
+    dex = load_pokedex(_real())
+
+    # Half-level CP multiplier interpolation: 40.5 sits between 40 and 41.
+    assert (dex.cp_multiplier_for_level(40)
+            < dex.cp_multiplier_for_level(40.5)
+            < dex.cp_multiplier_for_level(41))
+
+    # Azumarill's Great League rank-1 is the canonical 0/15/15, CP just under 1500.
+    great = dex.pvp_ranks("V0184_POKEMON_AZUMARILL", leagues=("great",))["great"]
+    assert great["viable"] and great["rank1"]["ivs"] == "0/15/15"
+    assert 1490 <= great["rank1"]["cp"] <= 1500
+
+    # A perfect IV is a poor Great League spread (rank far from 1).
+    r = dex.pvp_rank_of("V0184_POKEMON_AZUMARILL", "great", 15, 15, 15)
+    assert r["viable"] and r["rank"] > 100
+    assert dex.pvp_rank_of("V0184_POKEMON_AZUMARILL", "great", 0, 15, 15)["rank"] == 1
+
+    # Catch CP ranges (raid L20 / weather L25), verified against a known value:
+    # Charizard's perfect L20 catch CP is 1651.
+    enc = dex.sheet("V0006_POKEMON_CHARIZARD")["encounterCp"]
+    assert enc["raid"]["max"] == 1651 and enc["raid"]["min"] < enc["raid"]["max"]
+    assert enc["weatherBoosted"]["level"] == 25
+
+    # learners(): a common move returns many Pokémon, each with a "via" reason.
+    counter = dex.learners("Counter")
+    assert len(counter) > 20 and all(h["via"] for h in counter)
 
     # Unreleased OHKO moves are faithfully decoded but flagged, and reported.
     by_name = {m["name"]: m for m in dex.all_moves()}

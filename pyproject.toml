@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pogodecode"
-version = "1.0.1"
+version = "1.1.0"
 description = "Schema-free Pokémon GO GAME_MASTER decoder with a Pokédex verification viewer"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -43,6 +43,3 @@ pogodex-gui = "pogodecode.viewer:main"
 
 [tool.setuptools]
 packages = ["pogodecode"]
-
-[tool.setuptools.package-data]
-pogodecode = ["assets/fonts/*.ttf", "assets/fonts/*.txt"]

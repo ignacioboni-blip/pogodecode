@@ -198,6 +198,9 @@ def _prettify(token: str) -> str:
 # unreleased one-hit-KO moves (Horn Drill 9000, Fissure 9001).
 SENTINEL_POWER = 1000.0
 
+# PvP league CP caps (None = Master, uncapped).
+PVP_LEAGUES = {"little": 500, "great": 1500, "ultra": 2500, "master": None}
+
 
 class Move:
     __slots__ = ("id", "name", "raw_name", "type", "type_name", "power",
@@ -417,10 +420,17 @@ class Pokedex:
         """
         if level < 1:
             return None
-        idx = int(round(level - 1))
-        if 0 <= idx < len(self.cp_multipliers):
-            return self.cp_multipliers[idx]
-        return None
+        arr = self.cp_multipliers
+        lo = int(math.floor(level + 1e-9))
+        i = lo - 1
+        if i < 0 or i >= len(arr):
+            return None
+        if abs(level - lo) < 1e-9:
+            return arr[i]                       # whole level: exact table value
+        # Half level: the client interpolates as sqrt((cpm[L]^2 + cpm[L+1]^2)/2).
+        if i + 1 < len(arr):
+            return math.sqrt((arr[i] ** 2 + arr[i + 1] ** 2) / 2.0)
+        return arr[i]
 
     def max_cp(self, attack: int, defense: int, stamina: int,
                level: float = 40.0, iv: int = 15) -> Optional[int]:
@@ -490,6 +500,115 @@ class Pokedex:
             if cp is not None:
                 rows.append({"level": lv, "cp": cp})
         return rows
+
+    # -- PvP IV optimization ------------------------------------------------
+    def _base_stats(self, template_id: str) -> Optional[Dict[str, int]]:
+        try:
+            return self.sheet(template_id)["baseStats"]
+        except Exception:
+            return None
+
+    def _cp(self, atk: float, dfn: float, sta: float, cpm: float) -> int:
+        return max(10, int((atk * cpm) * math.sqrt(dfn * cpm) * math.sqrt(sta * cpm) / 10.0))
+
+    def _pvp_spreads(self, attack: int, defense: int, stamina: int,
+                     cap: Optional[int], max_level: float = 50.0) -> List[tuple]:
+        """Every IV combo's best (statProduct, ia, idf, ist, level, cp) under a CP
+        cap, sorted best-first. ``cap=None`` (Master) just maxes the level."""
+        levels = [n / 2.0 for n in range(2, int(max_level * 2) + 1)]
+        cpms = [(lv, self.cp_multiplier_for_level(lv)) for lv in levels]
+        cpms = [(lv, m) for lv, m in cpms if m]
+        if not cpms:
+            return []
+        out = []
+        for ia in range(16):
+            a = attack + ia
+            for idf in range(16):
+                d = defense + idf
+                for ist in range(16):
+                    s = stamina + ist
+                    if cap is None:
+                        lv, m = cpms[-1]
+                    else:
+                        lo, hi, pick = 0, len(cpms) - 1, -1
+                        while lo <= hi:                  # binary search: CP rises with level
+                            mid = (lo + hi) // 2
+                            if self._cp(a, d, s, cpms[mid][1]) <= cap:
+                                pick, lo = mid, mid + 1
+                            else:
+                                hi = mid - 1
+                        if pick < 0:
+                            continue                     # even L1 exceeds the cap
+                        lv, m = cpms[pick]
+                    sp = (a * m) * (d * m) * int(s * m)
+                    out.append((sp, ia, idf, ist, lv, self._cp(a, d, s, m)))
+        out.sort(key=lambda r: -r[0])
+        return out
+
+    def pvp_ranks(self, template_id: str, leagues=("great", "ultra", "little"),
+                  max_level: float = 50.0) -> Dict[str, Any]:
+        """Rank-1 IV spread (level, CP, stat product) for each league. The cap
+        is read from PVP_LEAGUES; 'master' is uncapped."""
+        bs = self._base_stats(template_id)
+        if not bs:
+            return {}
+        res = {}
+        for lg in leagues:
+            cap = PVP_LEAGUES.get(lg)
+            spreads = self._pvp_spreads(bs["attack"], bs["defense"], bs["stamina"],
+                                        cap, max_level)
+            if not spreads:
+                res[lg] = {"viable": False, "capCp": cap}
+                continue
+            sp, ia, idf, ist, lv, cp = spreads[0]
+            res[lg] = {"viable": True, "capCp": cap, "viableSpreads": len(spreads),
+                       "rank1": {"ivs": f"{ia}/{idf}/{ist}", "level": lv, "cp": cp,
+                                 "statProduct": int(sp)}}
+        return res
+
+    def pvp_rank_of(self, template_id: str, league: str, ia: int, idf: int, ist: int,
+                    max_level: float = 50.0) -> Optional[Dict[str, Any]]:
+        """Where a specific IV spread ranks in a league (1 = best)."""
+        bs = self._base_stats(template_id)
+        if not bs:
+            return None
+        spreads = self._pvp_spreads(bs["attack"], bs["defense"], bs["stamina"],
+                                    PVP_LEAGUES.get(league), max_level)
+        if not spreads:
+            return {"viable": False}
+        best = spreads[0][0]
+        for rank, (sp, a, d, s, lv, cp) in enumerate(spreads, start=1):
+            if (a, d, s) == (ia, idf, ist):
+                return {"viable": True, "rank": rank, "of": len(spreads),
+                        "percent": round(100.0 * sp / best, 2),
+                        "ivs": f"{ia}/{idf}/{ist}", "level": lv, "cp": cp,
+                        "statProduct": int(sp)}
+        return {"viable": False}   # this IV can't reach the cap (too strong)
+
+    # -- catch / raid CP ranges ---------------------------------------------
+    def encounter_cp(self, template_id: str) -> Dict[str, Any]:
+        """CP ranges for the fixed-level encounters where you catch Pokémon:
+        raids/eggs (Level 20, IV floor 10) and weather-boosted (Level 25)."""
+        return self.sheet(template_id).get("encounterCp", {})
+
+    # -- "who learns move X" ------------------------------------------------
+    def learners(self, move_query: str) -> List[Dict[str, Any]]:
+        """Pokémon that can learn a move (name substring), with how (fast/charge/
+        elite/required). Base-species forms only (skips Mega temp-evos)."""
+        q = move_query.strip().lower()
+        pools = (("fastMoves", "fast"), ("chargeMoves", "charge"),
+                 ("eliteFastMoves", "elite fast"), ("eliteChargeMoves", "elite charge"),
+                 ("requiredMoves", "required"))
+        out = []
+        for key in self._pokemon_keys:
+            if TEMPEVO_SEP in key:
+                continue
+            sh = self.sheet(key)
+            how = sorted({label for field, label in pools
+                          for m in sh.get(field, []) if q in m["name"].lower()})
+            if how:
+                out.append({"templateId": key, "name": sh["name"], "via": how})
+        return out
 
     # -- moves browser ------------------------------------------------------
     def all_moves(self) -> List[Dict[str, Any]]:
@@ -768,6 +887,14 @@ class Pokedex:
             "maxCpLevel40": self.max_cp(atk, dfn, sta, level=40),
             "maxCpLevel50": self.max_cp(atk, dfn, sta, level=50),
             "maxCpLevel51BestBuddy": self.max_cp(atk, dfn, sta, level=51),
+            # CP you'd catch it at: raids/eggs (L20) and weather-boosted (L25),
+            # from the 10/10/10 IV floor to a perfect 15/15/15.
+            "encounterCp": {
+                "raid": {"level": 20, "min": self.max_cp(atk, dfn, sta, 20, 10),
+                         "max": self.max_cp(atk, dfn, sta, 20, 15)},
+                "weatherBoosted": {"level": 25, "min": self.max_cp(atk, dfn, sta, 25, 10),
+                                   "max": self.max_cp(atk, dfn, sta, 25, 15)},
+            },
         }
         if override:
             return sheet

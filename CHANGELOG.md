@@ -3,6 +3,32 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-06-10
+
+Feature release — player tools, all derived purely from `GAME_MASTER` (no
+external data).
+
+### Added
+- **PvP IV / rank optimizer.** For any Pokémon × league (Little / Great / Ultra /
+  Master) it computes the **rank-1 IV spread, level, CP and stat product** under
+  the CP cap, and can **rank any specific IV** ("is my 0/15/15 good?"). In the
+  viewer's detail pane, and via `dexcli --pvp NAME [--iv 0/15/15] [--league …]`.
+  Uses correct half-level CP-multiplier interpolation; validated against the
+  canonical Azumarill Great-League rank-1 (0/15/15, ~CP 1499).
+- **Catch / raid CP ranges.** Each sheet now shows the CP you'd catch a Pokémon
+  at — raids/eggs (L20) and weather-boosted (L25), from the 10/10/10 floor to a
+  perfect 15/15/15. Shown in the viewer and CLI sheets and in the export.
+- **CSV export** — `dexcli --csv pokemon.csv` writes every Pokémon (dex, name,
+  types, stats, CP, catch CP, capture rate) for spreadsheets.
+- **"Who learns move X"** — `dexcli --learners "Counter"` lists every Pokémon
+  that can learn a move (with how: fast / charge / elite / required).
+
+### Changed
+- **No bundled fonts.** The apps now use the **operating system's native font**
+  by default (nothing registered at startup) for faster launch and rendering; you
+  can still pick any installed font via **View → Choose font…** ("Use system
+  default" resets). Removes the bundled font assets entirely.
+
 ## [1.0.1] - 2026-06-10
 
 Bug-fix release.

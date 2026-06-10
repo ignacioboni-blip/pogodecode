@@ -1,24 +1,14 @@
-"""Self-contained GUI theming + bundled-font support for the Tkinter apps.
+"""Self-contained GUI theming for the Tkinter apps (no bundled fonts).
 
-This is a **pure-ttk** theme: it styles widgets only, and never touches the OS
-window manager (no DWM/acrylic/native hacks), so it renders the same on Windows,
-macOS and Linux with no platform surprises. A light and a dark variant are
-provided; both are fully opaque and high-contrast.
+A pure-ttk light/dark theme that styles widgets only -- it never touches the OS
+window manager and it does not ship or register any fonts, so it stays fast and
+uses the platform's native system font by default. Users can still pick any
+installed font via :func:`choose_font`; headings/emphasis use bold of whatever
+font is active.
 
-Everything is best-effort and wrapped in try/except -- if a font can't be
-registered or a style can't be applied, the app falls back to Tk's defaults
-rather than breaking. This module is imported only by the GUIs; the CLI and
-library never import it (so they stay headless and dependency-free).
+Everything is best-effort and wrapped in try/except: a failure falls back to Tk's
+defaults rather than breaking the app. Imported only by the GUIs.
 """
-
-import glob
-import os
-import platform
-import sys
-
-# Bundled font families (see pogodecode/assets/fonts, SIL OFL).
-UI_FONT = "Google Sans Flex"     # default UI font
-DISPLAY_FONT = "Quicksand"       # used for headings / the app title
 
 # Two hand-tuned, fully-opaque palettes.
 PALETTES = {
@@ -39,78 +29,6 @@ PALETTES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Font registration (so the bundled TTFs are usable by family name)
-# ---------------------------------------------------------------------------
-
-def _font_dir():
-    """Locate the bundled fonts whether running from source or a PyInstaller build."""
-    base = getattr(sys, "_MEIPASS", None)
-    candidates = []
-    if base:
-        candidates += [os.path.join(base, "pogodecode", "assets", "fonts"),
-                       os.path.join(base, "assets", "fonts")]
-    candidates.append(os.path.join(os.path.dirname(__file__), "assets", "fonts"))
-    for c in candidates:
-        if os.path.isdir(c):
-            return c
-    return candidates[-1]
-
-
-def _register_one(path):
-    """Register a single TTF with the OS for the current process. Never raises."""
-    system = platform.system()
-    try:
-        if system == "Windows":
-            import ctypes
-            FR_PRIVATE = 0x10
-            n = ctypes.windll.gdi32.AddFontResourceExW(ctypes.c_wchar_p(path), FR_PRIVATE, 0)
-            return n > 0
-        if system == "Darwin":
-            import ctypes
-            import ctypes.util
-            cf = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreFoundation"))
-            ct = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreText"))
-            cf.CFStringCreateWithCString.restype = ctypes.c_void_p
-            cf.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
-            cf.CFURLCreateWithFileSystemPath.restype = ctypes.c_void_p
-            cf.CFURLCreateWithFileSystemPath.argtypes = [
-                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_bool]
-            ct.CTFontManagerRegisterFontsForURL.restype = ctypes.c_bool
-            ct.CTFontManagerRegisterFontsForURL.argtypes = [
-                ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
-            s = cf.CFStringCreateWithCString(None, path.encode("utf-8"), 0x08000100)
-            url = cf.CFURLCreateWithFileSystemPath(None, s, 0, False)
-            return bool(ct.CTFontManagerRegisterFontsForURL(url, 1, None))  # process scope
-        # Linux / other: install into the user font dir (best effort).
-        import shutil
-        dest_dir = os.path.expanduser("~/.local/share/fonts")
-        os.makedirs(dest_dir, exist_ok=True)
-        dest = os.path.join(dest_dir, os.path.basename(path))
-        if not os.path.exists(dest):
-            shutil.copy2(path, dest)
-            os.system("fc-cache -f >/dev/null 2>&1")
-        return True
-    except Exception:
-        return False
-
-
-def register_fonts():
-    """Register every bundled TTF (once per process). Returns count registered."""
-    global _REGISTERED
-    if _REGISTERED is not None:
-        return _REGISTERED
-    count = 0
-    for ttf in sorted(glob.glob(os.path.join(_font_dir(), "*.ttf"))):
-        if _register_one(ttf):
-            count += 1
-    _REGISTERED = count
-    return count
-
-
-_REGISTERED = None
-
-
 def _family_available(root, family):
     try:
         from tkinter import font as tkfont
@@ -119,39 +37,25 @@ def _family_available(root, family):
         return False
 
 
-# ---------------------------------------------------------------------------
-# The theme
-# ---------------------------------------------------------------------------
-
 def apply_theme(root, dark=False, font=None):
-    """Apply the theme + fonts to ``root``. Best-effort; never raises.
+    """Apply the theme to ``root``. Best-effort; never raises.
 
     ``font`` optionally overrides the UI font with any installed family (see
-    :func:`list_font_families`); falls back to the bundled font, then the Tk
-    default. Returns the resolved family.
+    :func:`list_font_families`). When ``None`` (the default), the platform's
+    native system font is used unchanged -- nothing is registered, so there is no
+    startup or per-draw cost. Returns the resolved family ("" = system default).
     """
     from tkinter import font as tkfont
     from tkinter import ttk
 
-    try:
-        register_fonts()
-    except Exception:
-        pass
-
-    # Resolve the UI font: user choice -> bundled Google Sans Flex -> Tk default.
-    ui = None
-    for candidate in (font, UI_FONT):
-        if candidate and _family_available(root, candidate):
-            ui = candidate
-            break
-    display = DISPLAY_FONT if _family_available(root, DISPLAY_FONT) else ui
+    ui = font if (font and _family_available(root, font)) else None
     p = PALETTES["dark" if dark else "light"]
 
     if ui:
-        # Change only the *family* of the standard named fonts, never the size --
-        # each platform keeps its native point size (macOS 13, Windows 9, …), so
-        # the UI doesn't shrink on Mac. TkFixedFont is left as the platform
-        # monospace so the aligned text panes (type chart, JSON) stay aligned.
+        # Only when the user explicitly chose a font: change the *family* of the
+        # standard named fonts (never the size -> keep each platform's native
+        # point size). TkFixedFont is left as the platform monospace so the
+        # aligned text panes (type chart, JSON) stay aligned.
         for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont",
                      "TkTooltipFont", "TkIconFont", "TkSmallCaptionFont", "TkCaptionFont"):
             try:
@@ -174,8 +78,9 @@ def apply_theme(root, dark=False, font=None):
         st.configure("TFrame", background=p["bg"])
         st.configure("TLabel", background=p["bg"], foreground=p["text"])
         st.configure("Muted.TLabel", background=p["bg"], foreground=p["muted"])
+        # Headings/emphasis: bold of whatever font is active (system or chosen).
         st.configure("Title.TLabel", background=p["bg"], foreground=p["text"],
-                     font=(display or ui or "TkHeadingFont", 15, "bold"))
+                     font=("TkHeadingFont", 15, "bold"))
         st.configure("Status.TLabel", background=p["heading"], foreground=p["muted"],
                      padding=4)
         st.configure("TLabelframe", background=p["bg"], bordercolor=p["border"])
@@ -272,7 +177,7 @@ def apply_theme(root, dark=False, font=None):
         pass
 
     _retheme_classic(root, p)
-    return ui or "TkDefaultFont"
+    return ui or ""
 
 
 def _retheme_classic(widget, p):
@@ -297,20 +202,13 @@ def _retheme_classic(widget, p):
         _retheme_classic(child, p)
 
 
-def text_widget_colors(dark=False):
-    """Palette colors for ad-hoc tk.Text / tk.Listbox created after theming."""
-    p = PALETTES["dark" if dark else "light"]
-    return {"bg": p["surface"], "fg": p["text"], "muted": p["muted"],
-            "accent": p["accent"], "sel": p["sel"]}
-
-
 # ---------------------------------------------------------------------------
-# Font picker
+# Font picker (system fonts; default is the platform font)
 # ---------------------------------------------------------------------------
 
 def list_font_families(root):
-    """Sorted, de-duplicated font families installed on this machine (plus the
-    bundled ones). '@'-prefixed vertical CJK variants are filtered out."""
+    """Sorted, de-duplicated font families installed on this machine.
+    '@'-prefixed vertical CJK variants are filtered out."""
     try:
         from tkinter import font as tkfont
         seen, out = set(), []
@@ -325,7 +223,8 @@ def list_font_families(root):
 
 
 def choose_font(root, current, on_apply):
-    """Open a searchable font picker. Calls ``on_apply(family)`` when chosen."""
+    """Open a searchable font picker. Calls ``on_apply(family)`` when chosen, or
+    ``on_apply(None)`` for "Use system default"."""
     import tkinter as tk
     from tkinter import ttk
 
@@ -388,7 +287,7 @@ def choose_font(root, current, on_apply):
 
     btns = ttk.Frame(win)
     btns.pack(fill="x", padx=10, pady=(0, 10))
-    ttk.Button(btns, text="Use bundled font",
-               command=lambda: (on_apply(UI_FONT), win.destroy())).pack(side="left")
+    ttk.Button(btns, text="Use system default",
+               command=lambda: (on_apply(None), win.destroy())).pack(side="left")
     ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
     ttk.Button(btns, text="Apply", command=apply_and_close).pack(side="right", padx=6)

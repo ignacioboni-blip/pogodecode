@@ -8,19 +8,5 @@ Inc. "Pokémon", "Pokémon GO", and related names and logos are trademarks of th
 respective owners, used here nominatively only. The project ships no game data;
 it decodes a GAME_MASTER file the user already possesses. See docs/LEGAL.md.
 
---------------------------------------------------------------------------------
-Third-party components
---------------------------------------------------------------------------------
-
-Google Sans Flex  (static Regular + Bold instances of the variable font)
-  Files:   pogodecode/assets/fonts/GoogleSansFlex-Regular.ttf
-           pogodecode/assets/fonts/GoogleSansFlex-Bold.ttf
-  License: SIL Open Font License, Version 1.1
-  Text:    pogodecode/assets/fonts/OFL-GoogleSansFlex.txt
-
-Quicksand
-  Files:   pogodecode/assets/fonts/Quicksand-Regular.ttf
-           pogodecode/assets/fonts/Quicksand-Medium.ttf
-           pogodecode/assets/fonts/Quicksand-Bold.ttf
-  License: SIL Open Font License, Version 1.1
-  Text:    pogodecode/assets/fonts/OFL-Quicksand.txt
+The apps use the operating system's native fonts; no fonts are bundled. The
+runtime depends only on the Python standard library.

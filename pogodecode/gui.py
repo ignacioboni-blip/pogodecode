@@ -59,10 +59,15 @@ class DecoderApp:
         data = _config.load(); data["dark"] = dark; _config.save(data)
 
     def _choose_font(self) -> None:
-        cur = _config.load().get("font") or _theme.UI_FONT
+        cur = _config.load().get("font") or ""
 
         def apply(family):
-            data = _config.load(); data["font"] = family; _config.save(data)
+            data = _config.load()
+            if family:
+                data["font"] = family
+            else:
+                data.pop("font", None)   # "Use system default"
+            _config.save(data)
             _theme.apply_theme(self.root, dark=self._dark.get(), font=family)
         _theme.choose_font(self.root, cur, apply)
 

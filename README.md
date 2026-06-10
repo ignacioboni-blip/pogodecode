@@ -165,6 +165,11 @@ decode. Highlights:
 - Dex number, name, form, **typing**, height/weight, **base catch rate**
 - **Base stats** and **Max CP at L40 / L50 / L51 (best buddy)** — correct
   integer-level CPM indexing (avoids the common ~6% L50 error)
+- **PvP IV / rank optimizer** — rank-1 IVs/level/CP per league (Little/Great/
+  Ultra/Master) and "how good is my 0/15/15?" ranking, with correct half-level
+  CP-multiplier interpolation
+- **Catch / raid CP ranges** — what CP you'd catch it at (raid L20, weather L25)
+  from the 10/10/10 floor to a perfect 15/15/15
 - **Fast & charge moves** with type, power, energy, duration, and **DPS/EPS**
 - **Elite / legacy moves** (Elite TM / Community Day) — e.g. Mewtwo's Shadow Ball
 - **Form / Mega signature moves** — Mega Rayquaza's Dragon Ascent, Crowned
@@ -190,6 +195,10 @@ python -m pogodecode.dexcli OLD_GAME_MASTER --diff NEW_GAME_MASTER --format md  
 python -m pogodecode.dexcli GAME_MASTER --export sheets.json
 python -m pogodecode.dexcli GAME_MASTER --check        # drift-guard (CI gate; exit≠0 on bad data)
 python -m pogodecode.dexcli GAME_MASTER --bundle data.json   # versioned, stamped export
+python -m pogodecode.dexcli GAME_MASTER --name AZUMARILL --pvp            # rank-1 IVs per league
+python -m pogodecode.dexcli GAME_MASTER --name AZUMARILL --pvp --iv 0/15/15  # rank a spread
+python -m pogodecode.dexcli GAME_MASTER --learners "Counter"             # who learns a move
+python -m pogodecode.dexcli GAME_MASTER --csv pokemon.csv                # spreadsheet export
 ```
 
 ## Theming & fonts
@@ -197,16 +206,14 @@ python -m pogodecode.dexcli GAME_MASTER --bundle data.json   # versioned, stampe
 Both apps ship with a clean, modern look out of the box:
 
 - **Self-contained theme.** A hand-written **pure-ttk** light & dark theme —
-  styled widgets only, **no OS window hacks** — so it renders identically and
-  reliably on Windows, macOS and Linux (fully opaque, high-contrast). Toggle via
-  **View → Dark mode** (remembered between sessions).
-- **Bundled font.** The UI uses **Google Sans Flex** as its default font, with
-  **Quicksand** for display text — both [SIL OFL](pogodecode/assets/fonts/)
-  licensed and **embedded in the app**, so they render the same everywhere with
-  nothing to install. Registered at runtime; falls back to the system font if not.
+  styled widgets only, **no OS window hacks, no bundled fonts** — so it's fast and
+  renders identically on Windows, macOS and Linux (fully opaque, high-contrast).
+  Toggle via **View → Dark mode** (remembered between sessions).
+- **Native system font** by default (nothing to install or register), so startup
+  is instant and text renders at native speed.
 - **Pick your own font.** **View → Choose font…** opens a searchable picker of
-  every font installed on your machine, with a live preview. Your choice is
-  remembered between sessions; "Use bundled font" restores Google Sans Flex.
+  every font installed on your machine, with a live preview; remembered between
+  sessions. "Use system default" restores the platform font.
 
 All theming is best-effort and isolated to the GUIs — the CLI/library stay
 dependency-free and headless-safe.
